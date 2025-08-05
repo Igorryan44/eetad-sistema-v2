@@ -1,8 +1,10 @@
-# 🎓 Sistema EETAD Palmas - Matrícula e Gestão Acadêmica
+# 🎓 Sistema EETAD v2 - Matrícula e Gestão Acadêmica
+
+**🚀 VERSÃO 2.0 - SISTEMA APRIMORADO**
 
 Sistema completo de matrícula e gestão acadêmica para a **Escola de Educação Teológica das Assembleias de Deus (EETAD)** - Núcleo Palmas, Tocantins.
 
-## 📋 Sobre o Projeto
+## 📋 Sobre o Projeto v2
 
 Sistema desenvolvido para gerenciar matrículas e pedidos de livros dos alunos da EETAD, integrado com:
 - **Ministério**: Assembléia de Deus Ministério Missão - PRV
@@ -10,9 +12,51 @@ Sistema desenvolvido para gerenciar matrículas e pedidos de livros dos alunos d
 - **Notificações**: WhatsApp e Email
 - **Banco de Dados**: Supabase
 
-## 🌐 Repositório
+## ✨ Novidades da Versão 2.0
 
-**GitHub**: https://github.com/Igorryan44/eetad-sistema-matricula
+### 🎯 Novas Funcionalidades
+- **Campo "Subnúcleo"** - Gestão detalhada por subnúcleos
+- **Campo "Status"** - Controle de status dos alunos:
+  - ✅ Ativo
+  - ❌ Inativo  
+  - ⏳ Pendente
+  - 🎓 Concluído
+
+### 🧹 Melhorias e Otimizações
+- **Remoção completa** de dados fictícios e mock data
+- **Harmonização** de estilos em todos os formulários
+- **Interface aprimorada** com melhor UX/UI
+- **Configuração otimizada** do Vite para melhor performance
+- **Sistema 100% pronto** para produção com dados reais
+
+### 🔧 Melhorias Técnicas
+- **Código limpo** e organizado
+- **Componentes otimizados** para melhor performance
+- **Estrutura aprimorada** de arquivos e pastas
+- **Documentação atualizada** e completa
+
+## 🌐 Repositório v2
+
+**GitHub**: https://github.com/Igorryan44/eetad-sistema-v2
+
+## 🔄 Diferenças entre v1 e v2
+
+| Funcionalidade | v1 (Original) | v2 (Aprimorada) |
+|---|---|---|
+| **Campo Subnúcleo** | ❌ Não possui | ✅ Implementado |
+| **Campo Status** | ❌ Não possui | ✅ 4 opções disponíveis |
+| **Dados Fictícios** | ⚠️ Presentes | ✅ Removidos completamente |
+| **Estilos de Formulários** | ⚠️ Inconsistentes | ✅ Harmonizados |
+| **Performance** | ⚠️ Básica | ✅ Otimizada |
+| **Produção** | ⚠️ Requer limpeza | ✅ 100% pronto |
+| **Repositório** | `eetad-sistema-matricula` | `eetad-sistema-v2` |
+
+### 🎯 Por que escolher a v2?
+- **✅ Mais funcionalidades** - Campos Subnúcleo e Status
+- **✅ Melhor qualidade** - Código limpo e otimizado  
+- **✅ Pronto para produção** - Sem dados fictícios
+- **✅ Interface aprimorada** - UX/UI melhorada
+- **✅ Performance superior** - Configurações otimizadas
 
 ## 📁 Estrutura do Projeto
 
@@ -46,11 +90,11 @@ Sistema desenvolvido para gerenciar matrículas e pedidos de livros dos alunos d
 ### Instalação
 
 ```bash
-# 1. Clone o repositório
-git clone https://github.com/Igorryan44/eetad-sistema-matricula.git
+# 1. Clone o repositório v2
+git clone https://github.com/Igorryan44/eetad-sistema-v2.git
 
 # 2. Navegue para o diretório
-cd eetad-sistema-matricula
+cd eetad-sistema-v2
 
 # 3. Instale as dependências
 npm install
