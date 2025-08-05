@@ -1,0 +1,12 @@
+versão 2
+
+1. Alteração no banco de dados:
+criar aba "matriculas" para que sejam salvas as informações:
+- Nome, cpf, telefone, ciclo (dropdown com os ciclos), data e status (dropdown: matriculado, cursando, não cursando e transferido para outro subnúcleo)
+alterar colunas na aba "alunos matriculados", possuir apenas dados pessoais e a sua congregação.
+
+2. Formulários:
+Alteração no formulário de inscrição par adequar às alterações do banco de dados e a lógica. Quando o aluno se inscrever e finalizar, a secretaria receberá via whatsapp que alguem se inscreveu, a propria secretaria irá efetivar a matricula deste novo aluno usando seu próprio ambiente que será criado. E assim que sua matrícula for efetiva pela secretaria, receberá uma mensagem no seu whatsapp comunicando que sua matricula foi efetivada.
+
+3. Criar uma página inicial com botões na parte superior para acessar "Acesso Aluno" e "Acesso Secretaria".
+O ambiente da secretaria terá uma dashboard com informações em tempo real das principais estastísticas e informaçõeas dos alunos, opções para gerar vários tipos de relatórios, e inclusive o formulário para alterações de dados dos alunos, efetivação de matricula e atualização de "status" da matrícula.

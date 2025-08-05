@@ -1,0 +1,10 @@
+project_id = "umkizxftwrwqiiahjbrr"
+
+[functions.cancel-order]
+verify_jwt = false
+[functions.ai-chatbot]
+verify_jwt = false
+[functions.mercadopago-webhook]
+verify_jwt = false
+[functions.get-pending-enrollments]
+verify_jwt = false
