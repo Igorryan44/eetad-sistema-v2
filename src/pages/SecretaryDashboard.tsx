@@ -8,7 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Calendar, FileText, Download, Eye, Users, BookOpen, GraduationCap, AlertCircle, Loader2 } from 'lucide-react';
+import { Calendar, FileText, Download, Eye, Users, BookOpen, GraduationCap, AlertCircle, Loader2, LogOut, Shield } from 'lucide-react';
+import AuthenticationSystem from '../components/AuthenticationSystem';
+import UserManagement from '../components/UserManagement';
+import { authService } from '../services/authService';
 
 type Student = {
   id: string;
@@ -40,6 +43,10 @@ type ReportData = {
 };
 
 const SecretaryDashboard = () => {
+  // Estado de autenticação
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(authService.getCurrentUser());
+
   const [pendingStudents, setPendingStudents] = useState<Student[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [allStudents, setAllStudents] = useState<Student[]>([]);
@@ -72,10 +79,17 @@ const SecretaryDashboard = () => {
   });
 
   useEffect(() => {
-    fetchPendingStudents();
-    fetchEnrollments();
-    fetchAllStudents();
-    fetchStats();
+    // Verificar autenticação
+    const authenticated = authService.isAuthenticated();
+    setIsAuthenticated(authenticated);
+    setCurrentUser(authService.getCurrentUser());
+
+    if (authenticated) {
+      fetchPendingStudents();
+      fetchEnrollments();
+      fetchAllStudents();
+      fetchStats();
+    }
   }, []);
 
   const fetchPendingStudents = async () => {
@@ -87,36 +101,31 @@ const SecretaryDashboard = () => {
         }
       });
 
-      if (!response.ok) {
-        throw new Error('Erro ao buscar alunos pendentes');
-      }
-
-      const data = await response.json();
-      
-      if (data.success) {
-        const pendingData = data.pendingEnrollments.map((enrollment: any) => ({
-          id: enrollment.rowIndex.toString(),
-          nome: enrollment.nome,
-          cpf: enrollment.cpf,
-          email: enrollment.email,
-          telefone: enrollment.telefone
-        }));
+      if (response.ok) {
+        const pendingData = await response.json();
         setPendingStudents(pendingData);
         
         // Atualizar estatísticas
         setStats(prev => ({ ...prev, totalPendentes: pendingData.length }));
       } else {
+        console.error('Erro ao buscar alunos pendentes:', response.statusText);
         setPendingStudents([]);
         setStats(prev => ({ ...prev, totalPendentes: 0 }));
+        
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar os alunos pendentes. Verifique se as funções Supabase estão ativas.",
+          variant: "destructive"
+        });
       }
     } catch (error) {
-      console.error('Erro ao buscar alunos pendentes:', error);
+      console.error('Erro ao conectar com Supabase:', error);
       setPendingStudents([]);
       setStats(prev => ({ ...prev, totalPendentes: 0 }));
       
       toast({
-        title: "Erro",
-        description: "Não foi possível carregar os alunos pendentes",
+        title: "Erro de Conexão",
+        description: "Não foi possível conectar com o servidor. Verifique sua conexão e se as funções Supabase estão ativas.",
         variant: "destructive"
       });
     }
@@ -124,31 +133,57 @@ const SecretaryDashboard = () => {
 
   const fetchEnrollments = async () => {
     try {
-      // TODO: Implementar busca real de matrículas efetivadas via Supabase
-      setEnrollments([]);
+      const response = await fetch('https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/get-enrollments', {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
+        }
+      });
+
+      if (response.ok) {
+        const enrollmentsData = await response.json();
+        setEnrollments(enrollmentsData);
+      } else {
+        console.error('Erro ao buscar matrículas:', response.statusText);
+        setEnrollments([]);
+        
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar as matrículas. Verifique se as funções Supabase estão ativas.",
+          variant: "destructive"
+        });
+      }
     } catch (error) {
       console.error('Erro ao buscar matrículas:', error);
       setEnrollments([]);
+      
+      toast({
+        title: "Erro de Conexão",
+        description: "Não foi possível conectar com o servidor para carregar matrículas.",
+        variant: "destructive"
+      });
     }
   };
 
   const fetchAllStudents = async () => {
     try {
-      // TODO: Implementar busca real de todos os alunos via Supabase
-      // Combinar alunos pendentes e matriculados
-      const allStudents: Student[] = [
-        ...pendingStudents,
-        ...enrollments.map(e => ({
-          id: e.studentId,
-          nome: e.nome || 'Nome não informado',
-          cpf: '',
-          email: '',
-          telefone: '',
-          ciclo: e.ciclo
-        }))
-      ];
-      
-      setAllStudents(allStudents);
+      // Aguardar que os dados sejam carregados primeiro
+      setTimeout(() => {
+        // Combinar alunos pendentes e matriculados
+        const allStudents: Student[] = [
+          ...pendingStudents,
+          ...enrollments.map(e => ({
+            id: e.studentId,
+            nome: e.nome || 'Nome não informado',
+            cpf: '',
+            email: '',
+            telefone: '',
+            ciclo: e.ciclo
+          }))
+        ];
+        
+        setAllStudents(allStudents);
+      }, 100);
     } catch (error) {
       console.error('Erro ao buscar todos os alunos:', error);
       setAllStudents([]);
@@ -157,27 +192,72 @@ const SecretaryDashboard = () => {
 
   const fetchStats = async () => {
     try {
-      // Calcular estatísticas reais baseadas nos dados
-      const totalMatriculados = enrollments.filter(e => e.status === 'matriculado').length;
-      const totalCursando = enrollments.filter(e => e.status === 'cursando').length;
-      const totalNaoCursando = enrollments.filter(e => e.status === 'nao-cursando').length;
-      const totalRecuperacao = enrollments.filter(e => e.status === 'recuperacao').length;
-      const totalAprovados = enrollments.filter(e => e.status === 'aprovado').length;
-      const totalReprovados = enrollments.filter(e => e.status === 'reprovado').length;
-      
-      setStats(prev => ({
-        ...prev,
-        matriculados: totalMatriculados,
-        cursando: totalCursando,
-        naoCursando: totalNaoCursando,
-        recuperacao: totalRecuperacao,
-        aprovados: totalAprovados,
-        reprovados: totalReprovados
-      }));
+      // Aguardar que os dados sejam carregados primeiro
+      setTimeout(() => {
+        // Calcular estatísticas reais baseadas nos dados
+        const totalMatriculados = enrollments.filter(e => e.status === 'matriculado').length;
+        const totalCursando = enrollments.filter(e => e.status === 'cursando').length;
+        const totalNaoCursando = enrollments.filter(e => e.status === 'nao-cursando').length;
+        const totalRecuperacao = enrollments.filter(e => e.status === 'recuperacao').length;
+        const totalAprovados = enrollments.filter(e => e.status === 'aprovado').length;
+        const totalReprovados = enrollments.filter(e => e.status === 'reprovado').length;
+        
+        setStats(prev => ({
+          ...prev,
+          matriculados: totalMatriculados,
+          cursando: totalCursando,
+          naoCursando: totalNaoCursando,
+          recuperacao: totalRecuperacao,
+          aprovados: totalAprovados,
+          reprovados: totalReprovados
+        }));
+      }, 200);
     } catch (error) {
       console.error('Erro ao calcular estatísticas:', error);
     }
   };
+
+  // Funções de autenticação
+  const handleAuthenticated = () => {
+    setIsAuthenticated(true);
+    setCurrentUser(authService.getCurrentUser());
+    
+    // Carregar dados após autenticação
+    fetchPendingStudents();
+    fetchEnrollments();
+    fetchAllStudents();
+    fetchStats();
+  };
+
+  const handleLogout = () => {
+    authService.logout();
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    
+    // Limpar dados sensíveis
+    setPendingStudents([]);
+    setEnrollments([]);
+    setAllStudents([]);
+    setStats({ 
+      totalPendentes: 0, 
+      matriculados: 0, 
+      cursando: 0, 
+      naoCursando: 0, 
+      recuperacao: 0,
+      aprovados: 0,
+      reprovados: 0
+    });
+  };
+
+  // Função para cancelar e voltar à página inicial
+  const handleCancel = () => {
+    window.location.href = '/';
+  };
+
+  // Renderização condicional baseada na autenticação
+  if (!isAuthenticated) {
+    return <AuthenticationSystem onAuthenticated={handleAuthenticated} onCancel={handleCancel} />;
+  }
 
   const openEnrollmentForm = (student: Student) => {
     setSelectedStudentForEnrollment(student);
@@ -251,7 +331,7 @@ const SecretaryDashboard = () => {
       let reportTitle = '';
       
       switch (type) {
-        case 'por-data':
+        case 'date':
           if (!dateRange.startDate || !dateRange.endDate) {
             toast({
               title: "Erro",
@@ -272,7 +352,7 @@ const SecretaryDashboard = () => {
           }
           break;
           
-        case 'por-ciclo':
+        case 'cycle':
           if (!selectedCycle) {
             toast({
               title: "Erro", 
@@ -293,7 +373,7 @@ const SecretaryDashboard = () => {
           }
           break;
           
-        case 'cursando-nao-cursando':
+        case 'status':
           reportTitle = 'Relatório de Alunos Cursando/Não Cursando';
           reportContent = await generateStatusReport();
           if (!reportContent) {
@@ -306,7 +386,7 @@ const SecretaryDashboard = () => {
           }
           break;
           
-        case 'aprovados-reprovados':
+        case 'grade':
           reportTitle = 'Relatório de Alunos Aprovados/Reprovados/Recuperação';
           reportContent = await generateGradeReport();
           if (!reportContent) {
@@ -319,7 +399,7 @@ const SecretaryDashboard = () => {
           }
           break;
           
-        case 'livros-por-aluno':
+        case 'books':
           if (!selectedStudentForReport) {
             toast({
               title: "Erro",
@@ -676,16 +756,18 @@ const SecretaryDashboard = () => {
     }
   };
 
-  return (
+  // Interface principal da secretaria (protegida)
+  const dashboardContent = (
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6">Dashboard Secretaria</h1>
       <Tabs defaultValue="dashboard">
-        <TabsList>
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="pending">Matrículas Pendentes</TabsTrigger>
-          <TabsTrigger value="enrollments">Matrículas</TabsTrigger>
-          <TabsTrigger value="reports">Relatórios</TabsTrigger>
-        </TabsList>
+          <TabsList>
+            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="pending">Matrículas Pendentes</TabsTrigger>
+            <TabsTrigger value="enrollments">Matrículas</TabsTrigger>
+            <TabsTrigger value="reports">Relatórios</TabsTrigger>
+            <TabsTrigger value="users">Usuários</TabsTrigger>
+          </TabsList>
         <TabsContent value="dashboard">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
@@ -1067,7 +1149,45 @@ const SecretaryDashboard = () => {
             </Card>
           </div>
         </TabsContent>
+
+        <TabsContent value="users">
+          <UserManagement />
+        </TabsContent>
       </Tabs>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Header com informações do usuário e logout */}
+      <div className="bg-white rounded-lg shadow-sm p-4 border">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+              <Shield className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900">
+                Painel da Secretaria - EETAD v2
+              </h1>
+              <p className="text-sm text-gray-600">
+                Bem-vindo(a), {currentUser?.fullName || 'Usuário'}
+              </p>
+            </div>
+          </div>
+          
+          <Button 
+            variant="outline" 
+            onClick={handleLogout}
+            className="flex items-center gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            Sair
+          </Button>
+        </div>
+      </div>
+
+      {dashboardContent}
     </div>
   );
 };

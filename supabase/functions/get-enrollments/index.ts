@@ -12,11 +12,11 @@ serve(async (req) => {
   }
 
   try {
-    console.log('📋 Buscando matrículas pendentes...')
+    console.log('📋 Buscando matrículas efetivadas...')
 
     // Configurações do Google Sheets
     const GOOGLE_SHEETS_SPREADSHEET_ID = '1BKet2O-aSnNKPRflC24PxnOQikVA5k9RhzmBiJtzhAA'
-    const SHEET_NAME = 'dados pessoais'
+    const SHEET_NAME = 'matriculas'
     
     // Credenciais do Google (service account)
     const GOOGLE_SERVICE_ACCOUNT_EMAIL = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_EMAIL')
@@ -108,7 +108,7 @@ serve(async (req) => {
     const tokenData = await tokenResponse.json()
     const accessToken = tokenData.access_token
 
-    // Buscar dados da planilha
+    // Buscar dados da planilha de matrículas
     const sheetResponse = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_SPREADSHEET_ID}/values/${SHEET_NAME}`,
       {
@@ -141,50 +141,24 @@ serve(async (req) => {
     const headers = rows[0]
     const dataRows = rows.slice(1)
 
-    // Filtrar apenas registros com status "Pendente" e converter para formato esperado
-    const pendingEnrollments = dataRows
-      .map((row, index) => {
-        const enrollment = {
-          rowIndex: index + 2, // +2 porque começamos da linha 2 (após cabeçalho)
-          dataCadastro: row[0] || '',
-          nome: row[1] || '',
-          rg: row[2] || '',
-          cpf: row[3] || '',
-          telefone: row[4] || '',
-          email: row[5] || '',
-          sexo: row[6] || '',
-          estadoCivil: row[7] || '',
-          dataNascimento: row[8] || '',
-          cidadeNascimento: row[9] || '',
-          ufNascimento: row[10] || '',
-          nacionalidade: row[11] || '',
-          escolaridade: row[12] || '',
-          profissao: row[13] || '',
-          cargoIgreja: row[14] || '',
-          enderecoRua: row[15] || '',
-          cep: row[16] || '',
-          numero: row[17] || '',
-          complemento: row[18] || '',
-          bairro: row[19] || '',
-          cidade: row[20] || '',
-          uf: row[21] || '',
-          status: row[22] || 'Pendente'
-        }
-        return enrollment
-      })
-      .filter(enrollment => enrollment.status === 'Pendente')
-      .map(enrollment => ({
-        id: enrollment.rowIndex.toString(),
-        nome: enrollment.nome,
-        cpf: enrollment.cpf,
-        email: enrollment.email,
-        telefone: enrollment.telefone
+    // Converter dados para formato esperado
+    const enrollments = dataRows
+      .map((row, index) => ({
+        id: (index + 1).toString(),
+        studentId: row[0] || '',
+        nome: row[1] || '',
+        ciclo: row[2] || '',
+        subnucleo: row[3] || '',
+        dataEvento: row[4] || '',
+        status: row[5] || '',
+        observacao: row[6] || ''
       }))
+      .filter(enrollment => enrollment.nome && enrollment.status)
 
-    console.log(`✅ Encontradas ${pendingEnrollments.length} matrículas pendentes`)
+    console.log(`✅ Encontradas ${enrollments.length} matrículas`)
 
     return new Response(
-      JSON.stringify(pendingEnrollments),
+      JSON.stringify(enrollments),
       { 
         headers: { 
           ...corsHeaders, 
@@ -194,7 +168,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Erro na função get-pending-enrollments:', error)
+    console.error('Erro na função get-enrollments:', error)
     
     return new Response(
       JSON.stringify([]),

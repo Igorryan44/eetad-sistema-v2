@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Real do Login - EETAD v2</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .button:hover {
+            background: #45a049;
+        }
+        .button.danger {
+            background: #f44336;
+        }
+        .log {
+            background: #000;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .credentials {
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Teste Real do Login - EETAD v2</h1>
+        <p>Simulando exatamente o fluxo do authService.ts</p>
+
+        <div class="credentials">
+            <h3>📋 Credenciais para Teste</h3>
+            <p><strong>Username:</strong> Admin</p>
+            <p><strong>Password:</strong> admin1</p>
+        </div>
+
+        <div>
+            <button class="button danger" onclick="resetarSistema()">🔄 Resetar Sistema</button>
+            <button class="button" onclick="testarLoginCompleto()">🔐 Testar Login Completo</button>
+            <button class="button" onclick="verificarAutenticacao()">✅ Verificar Autenticação</button>
+            <button class="button" onclick="irParaLogin()">🚀 Ir para Login Real</button>
+        </div>
+
+        <div id="status" class="status"></div>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        // Simulação EXATA do authService.ts
+        class AuthServiceTest {
+            constructor() {
+                this.SESSION_KEY = 'eetad_secretary_session';
+                this.SUPABASE_URL = 'https://umkizxftwrwqiiahjbrr.supabase.co';
+                this.currentUser = null;
+                this.loadSession();
+            }
+
+            // Função de hash EXATA
+            hashPassword(password) {
+                let hash = 0;
+                for (let i = 0; i < password.length; i++) {
+                    const char = password.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash;
+                }
+                return Math.abs(hash).toString(16);
+            }
+
+            // Fallback EXATO
+            handleLocalStorageFallback(data) {
+                const STORAGE_KEY = 'secretary-users';
+                
+                switch (data.action) {
+                    case 'login':
+                        try {
+                            const users = localStorage.getItem(STORAGE_KEY);
+                            const userList = users ? JSON.parse(users) : [];
+                            
+                            log(`📊 Usuários encontrados: ${userList.length}`);
+                            
+                            if (userList.length === 0) {
+                                const defaultUser = {
+                                    id: '1',
+                                    username: 'Admin',
+                                    email: 'admin@eetad.com',
+                                    fullName: 'Administrador',
+                                    passwordHash: this.hashPassword('admin1'),
+                                    createdAt: new Date().toISOString()
+                                };
+                                userList.push(defaultUser);
+                                localStorage.setItem(STORAGE_KEY, JSON.stringify(userList));
+                                log(`👤 Usuário Admin criado: ${defaultUser.passwordHash}`, 'success');
+                            }
+
+                            const user = userList.find(u => u.username === data.username);
+                            if (user && user.passwordHash === this.hashPassword(data.password)) {
+                                user.lastLogin = new Date().toISOString();
+                                localStorage.setItem(STORAGE_KEY, JSON.stringify(userList));
+                                log(`✅ Login bem-sucedido para ${user.username}`, 'success');
+                                return { success: true, user };
+                            }
+                            log(`❌ Credenciais inválidas para ${data.username}`, 'error');
+                            return { success: false, error: 'Credenciais inválidas' };
+                        } catch (error) {
+                            log(`💥 Erro no login: ${error.message}`, 'error');
+                            return { success: false, error: 'Erro interno' };
+                        }
+                    default:
+                        return { success: false, error: 'Ação não suportada' };
+                }
+            }
+
+            // Simulação da chamada Supabase
+            async callSupabaseFunction(data) {
+                try {
+                    log(`🌐 Tentando conectar ao Supabase...`);
+                    const response = await fetch(`${this.SUPABASE_URL}/functions/v1/manage-secretary-users`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Erro na API: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    log(`✅ Supabase respondeu com sucesso`, 'success');
+                    return result;
+                } catch (error) {
+                    log(`⚠️ Supabase falhou, usando localStorage: ${error.message}`, 'warning');
+                    return this.handleLocalStorageFallback(data);
+                }
+            }
+
+            // Carregar sessão EXATA
+            loadSession() {
+                const session = localStorage.getItem(this.SESSION_KEY);
+                if (session) {
+                    try {
+                        const sessionData = JSON.parse(session);
+                        if (sessionData.expiresAt > Date.now()) {
+                            this.currentUser = sessionData.user;
+                            log(`🔐 Sessão carregada: ${this.currentUser.username}`, 'success');
+                        } else {
+                            log(`⏰ Sessão expirada`, 'warning');
+                            this.logout();
+                        }
+                    } catch (error) {
+                        log(`💥 Erro ao carregar sessão: ${error.message}`, 'error');
+                        this.logout();
+                    }
+                } else {
+                    log(`📭 Nenhuma sessão encontrada`);
+                }
+            }
+
+            // Login EXATO
+            async login(credentials) {
+                try {
+                    log(`🔐 Tentativa de login: ${credentials.username}`);
+                    
+                    const result = await this.callSupabaseFunction({
+                        action: 'login',
+                        username: credentials.username,
+                        password: credentials.password
+                    });
+
+                    if (result.success && result.user) {
+                        const session = {
+                            user: result.user,
+                            expiresAt: Date.now() + (8 * 60 * 60 * 1000)
+                        };
+
+                        localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
+                        this.currentUser = result.user;
+                        log(`🎉 Login realizado com sucesso!`, 'success');
+                        return true;
+                    }
+                    
+                    log(`❌ Login falhou: ${result.error}`, 'error');
+                    return false;
+                } catch (error) {
+                    log(`💥 Erro no login: ${error.message}`, 'error');
+                    return false;
+                }
+            }
+
+            // Logout EXATO
+            logout() {
+                localStorage.removeItem(this.SESSION_KEY);
+                this.currentUser = null;
+                log(`🚪 Logout realizado`);
+            }
+
+            // Verificar autenticação EXATA
+            isAuthenticated() {
+                const authenticated = this.currentUser !== null;
+                log(`🔍 Autenticado: ${authenticated}`);
+                return authenticated;
+            }
+
+            getCurrentUser() {
+                return this.currentUser;
+            }
+        }
+
+        // Instância do serviço
+        const authService = new AuthServiceTest();
+
+        // Função de log
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logElement = document.getElementById('log');
+            const typeSymbol = {
+                'info': 'ℹ️',
+                'success': '✅',
+                'error': '❌',
+                'warning': '⚠️'
+            };
+            
+            logElement.textContent += `[${timestamp}] ${typeSymbol[type]} ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(`[TEST] ${message}`);
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusElement = document.getElementById('status');
+            statusElement.className = `status ${type}`;
+            statusElement.textContent = message;
+        }
+
+        // Funções de teste
+        function resetarSistema() {
+            log('🔄 RESETANDO SISTEMA COMPLETO...', 'warning');
+            
+            // Limpar tudo
+            const keys = ['secretary-users', 'eetad_secretary_users', 'secretary-session', 'eetad_secretary_session'];
+            keys.forEach(key => {
+                localStorage.removeItem(key);
+                log(`🗑️ Removido: ${key}`);
+            });
+            
+            // Recriar instância
+            authService.currentUser = null;
+            log('✅ Sistema resetado com sucesso!', 'success');
+            updateStatus('Sistema resetado - pronto para teste', 'success');
+        }
+
+        async function testarLoginCompleto() {
+            log('🚀 INICIANDO TESTE DE LOGIN COMPLETO...', 'info');
+            updateStatus('Testando login...', 'warning');
+            
+            try {
+                const success = await authService.login({
+                    username: 'Admin',
+                    password: 'admin1'
+                });
+                
+                if (success) {
+                    log('🎉 TESTE DE LOGIN CONCLUÍDO COM SUCESSO!', 'success');
+                    updateStatus('Login funcionando perfeitamente!', 'success');
+                } else {
+                    log('💥 TESTE DE LOGIN FALHOU!', 'error');
+                    updateStatus('Erro no login - verifique os logs', 'error');
+                }
+            } catch (error) {
+                log(`💥 Erro durante o teste: ${error.message}`, 'error');
+                updateStatus('Erro durante o teste', 'error');
+            }
+        }
+
+        function verificarAutenticacao() {
+            log('🔍 VERIFICANDO AUTENTICAÇÃO...', 'info');
+            
+            const isAuth = authService.isAuthenticated();
+            const currentUser = authService.getCurrentUser();
+            
+            if (isAuth && currentUser) {
+                log(`✅ Usuário autenticado: ${currentUser.username}`, 'success');
+                updateStatus(`Autenticado como: ${currentUser.username}`, 'success');
+            } else {
+                log('❌ Usuário NÃO autenticado', 'error');
+                updateStatus('Não autenticado', 'error');
+            }
+            
+            // Verificar dados do localStorage
+            const session = localStorage.getItem('eetad_secretary_session');
+            if (session) {
+                try {
+                    const sessionData = JSON.parse(session);
+                    log(`📊 Sessão no localStorage: ${JSON.stringify(sessionData, null, 2)}`);
+                } catch {
+                    log('💥 Sessão corrompida no localStorage', 'error');
+                }
+            } else {
+                log('📭 Nenhuma sessão no localStorage');
+            }
+        }
+
+        function irParaLogin() {
+            log('🚀 Redirecionando para o login real...', 'info');
+            window.location.href = '/';
+        }
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🔧 Sistema de teste inicializado', 'success');
+            updateStatus('Sistema pronto para teste', 'success');
+        });
+    </script>
+</body>
+</html>

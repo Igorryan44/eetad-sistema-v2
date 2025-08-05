@@ -6,13 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { Student } from "@/pages/Index";
-import { Search, UserCheck, Loader2, Shield } from "lucide-react";
+import { Search, UserCheck, Loader2, Shield, X } from "lucide-react";
 
 interface CPFVerificationFormProps {
   onCPFVerified: (student: Student) => void;
+  onCancel?: () => void;
 }
 
-const CPFVerificationForm = ({ onCPFVerified }: CPFVerificationFormProps) => {
+const CPFVerificationForm = ({ onCPFVerified, onCancel }: CPFVerificationFormProps) => {
   const [cpf, setCpf] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const cpfInputRef = useRef<HTMLInputElement>(null);
@@ -168,7 +169,7 @@ const CPFVerificationForm = ({ onCPFVerified }: CPFVerificationFormProps) => {
                 <Shield className="h-6 w-6 md:h-8 md:w-8 text-white" />
               </div>
             </div>
-            <CardTitle className="text-xl md:text-2xl font-bold mb-2">Verificação de CPF</CardTitle>
+            <CardTitle className="text-xl md:text-2xl font-bold mb-2">Acesso do Aluno</CardTitle>
             <CardDescription className="text-blue-100 text-base md:text-lg">
               Digite seu CPF para acessar o sistema
             </CardDescription>
@@ -216,6 +217,18 @@ const CPFVerificationForm = ({ onCPFVerified }: CPFVerificationFormProps) => {
                 </div>
               )}
             </Button>
+            
+            {onCancel && (
+              <Button 
+                type="button"
+                variant="outline"
+                onClick={onCancel}
+                className="w-full h-10 md:h-12 text-sm md:text-base font-medium border-2 border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400 rounded-xl transition-all duration-300"
+              >
+                <X className="h-4 w-4 md:h-5 md:w-5 mr-2" />
+                Cancelar
+              </Button>
+            )}
           </form>
           
           {/* Informações de segurança */}

@@ -56,6 +56,10 @@ const Index = () => {
     setCurrentBookOrder(null);
   };
 
+  const handleCancel = () => {
+    window.location.href = '/';
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-800 to-blue-800 relative overflow-hidden">
       {/* Background decorative elements */}
@@ -158,7 +162,7 @@ const Index = () => {
           <div className="flex justify-center">
             {currentStep === 'cpf' && (
               <div className="w-full max-w-md animate-fade-in">
-                <CPFVerificationForm onCPFVerified={handleCPFVerified} />
+                <CPFVerificationForm onCPFVerified={handleCPFVerified} onCancel={handleCancel} />
               </div>
             )}
 

@@ -8,3 +8,5 @@ verify_jwt = false
 verify_jwt = false
 [functions.get-pending-enrollments]
 verify_jwt = false
+[functions.manage-secretary-users]
+verify_jwt = false
