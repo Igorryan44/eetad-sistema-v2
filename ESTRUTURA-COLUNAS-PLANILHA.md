@@ -5,37 +5,38 @@ Este documento mapeia a estrutura das colunas de cada aba da planilha Google She
 
 ## 📋 Aba "dados pessoais"
 
-### Estrutura Atual (baseada em save-student-personal-data)
+### Estrutura Atual (baseada na estrutura real da planilha)
 | Índice | Coluna | Campo | Descrição |
 |--------|--------|-------|-----------|
-| 0 | A | Data Cadastro | Data/hora do cadastro |
-| 1 | B | Nome | Nome completo do aluno |
-| 2 | C | RG | Registro Geral |
-| 3 | D | CPF | Cadastro de Pessoa Física |
-| 4 | E | Telefone | Número de telefone |
-| 5 | F | Email | Endereço de email |
-| 6 | G | Sexo | Masculino/Feminino |
-| 7 | H | Estado Civil | Solteiro/Casado/etc |
-| 8 | I | Data Nascimento | Data de nascimento |
-| 9 | J | Cidade Nascimento | Cidade onde nasceu |
-| 10 | K | UF Nascimento | Estado onde nasceu |
-| 11 | L | Nacionalidade | Nacionalidade |
-| 12 | M | Escolaridade | Nível de escolaridade |
-| 13 | N | Profissão | Profissão atual |
-| 14 | O | Cargo Igreja | Cargo na igreja |
-| 15 | P | Endereço Rua | Rua do endereço |
-| 16 | Q | CEP | Código postal |
-| 17 | R | Número | Número da residência |
-| 18 | S | Complemento | Complemento do endereço |
-| 19 | T | Bairro | Bairro |
-| 20 | U | Cidade | Cidade atual |
-| 21 | V | UF | Estado atual |
-| 22 | W | Status | Status da matrícula (Pendente/Matriculado) |
+| 0 | A | Origem Acadêmica | Origem acadêmica do aluno |
+| 1 | B | Escola Estudou | Em qual escola estudou |
+| 2 | C | Modalidade Estudou | Em qual modalidade estudou |
+| 3 | D | Congregação | Congregação do aluno |
+| 4 | E | Nome | Nome completo do aluno |
+| 5 | F | RG | Registro Geral |
+| 6 | G | CPF | Cadastro de Pessoa Física |
+| 7 | H | Telefone | Número de telefone |
+| 8 | I | Email | Endereço de email |
+| 9 | J | Sexo | Masculino/Feminino |
+| 10 | K | Estado Civil | Solteiro/Casado/etc |
+| 11 | L | Data Nascimento | Data de nascimento |
+| 12 | M | UF Nascimento | Estado onde nasceu |
+| 13 | N | Escolaridade | Nível de escolaridade |
+| 14 | O | Profissão | Profissão atual |
+| 15 | P | Nacionalidade | Nacionalidade |
+| 16 | Q | Cargo Igreja | Cargo na igreja |
+| 17 | R | Endereço Rua | Rua do endereço |
+| 18 | S | CEP | Código postal |
+| 19 | T | Número | Número da residência |
+| 20 | U | Bairro | Bairro |
+| 21 | V | Cidade | Cidade atual |
+| 22 | W | UF | Estado atual |
+| 23 | X | Data Cadastro | Data/hora do cadastro |
 
 ### ✅ Funções que usam esta aba:
-- **save-student-personal-data**: Salva dados (estrutura completa)
-- **get-pending-enrollments**: Lê dados (usa índices 1, 3, 4, 5)
-- **check-student-cpf**: Lê dados (busca por CPF)
+- **save-student-personal-data**: Salva dados pessoais
+- **get-pending-enrollments**: Busca matrículas pendentes (usa índices 4, 6, 7, 8) ✅ CORRIGIDO
+- **check-student-cpf**: Verifica CPF do aluno
 
 ## 📚 Aba "matriculas"
 

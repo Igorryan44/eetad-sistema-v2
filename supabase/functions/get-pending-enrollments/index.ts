@@ -184,10 +184,10 @@ serve(async (req) => {
     // Filtrar alunos que estão em "dados pessoais" mas NÃO estão em "matriculas"
     const pendingEnrollments = dadosPessoaisDataRows
       .map((row, index) => {
-        const cpf = row[3] || '' // CPF está na coluna 4 (índice 3)
-        const nome = row[1] || '' // Nome está na coluna 2 (índice 1)
-        const email = row[5] || '' // Email está na coluna 6 (índice 5)
-        const telefone = row[4] || '' // Telefone está na coluna 5 (índice 4)
+        const cpf = row[6] || '' // CPF está na coluna 7 (índice 6)
+        const nome = row[4] || '' // Nome está na coluna 5 (índice 4)
+        const email = row[8] || '' // Email está na coluna 9 (índice 8)
+        const telefone = row[7] || '' // Telefone está na coluna 8 (índice 7)
 
         return {
           rowIndex: index + 2, // +2 porque começamos da linha 2 (após cabeçalho)
