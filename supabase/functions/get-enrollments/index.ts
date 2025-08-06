@@ -142,16 +142,22 @@ serve(async (req) => {
     const dataRows = rows.slice(1)
 
     // Converter dados para formato esperado
+    // Estrutura correta da aba matriculas (conforme finalize-enrollment):
+    // [Data Efetivação, Número Matrícula, CPF, Nome, Ciclo, Subnúcleo, Data Evento, Status, Observação, Email, Telefone]
     const enrollments = dataRows
       .map((row, index) => ({
         id: (index + 1).toString(),
-        studentId: row[0] || '',
-        nome: row[1] || '',
-        ciclo: row[2] || '',
-        subnucleo: row[3] || '',
-        dataEvento: row[4] || '',
-        status: row[5] || '',
-        observacao: row[6] || ''
+        dataEfetivacao: row[0] || '',
+        numeroMatricula: row[1] || '',
+        cpf: row[2] || '',
+        nome: row[3] || '',
+        ciclo: row[4] || '',
+        subnucleo: row[5] || '',
+        dataEvento: row[6] || '',
+        status: row[7] || '',
+        observacao: row[8] || '',
+        email: row[9] || '',
+        telefone: row[10] || ''
       }))
       .filter(enrollment => enrollment.nome && enrollment.status)
 

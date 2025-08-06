@@ -13,10 +13,12 @@ serve(async (req) => {
 
   try {
     console.log('📋 Buscando matrículas pendentes...')
+    console.log('🔍 Nova lógica: Comparando "dados pessoais" vs "matriculas"')
 
     // Configurações do Google Sheets
     const GOOGLE_SHEETS_SPREADSHEET_ID = '1BKet2O-aSnNKPRflC24PxnOQikVA5k9RhzmBiJtzhAA'
-    const SHEET_NAME = 'dados pessoais'
+    const DADOS_PESSOAIS_SHEET = 'dados pessoais'
+    const MATRICULAS_SHEET = 'matriculas'
     
     // Credenciais do Google (service account)
     const GOOGLE_SERVICE_ACCOUNT_EMAIL = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_EMAIL')
@@ -108,9 +110,10 @@ serve(async (req) => {
     const tokenData = await tokenResponse.json()
     const accessToken = tokenData.access_token
 
-    // Buscar dados da planilha
-    const sheetResponse = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_SPREADSHEET_ID}/values/${SHEET_NAME}`,
+    // Buscar dados da aba "dados pessoais"
+    console.log('📊 Buscando dados da aba "dados pessoais"...')
+    const dadosPessoaisResponse = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_SPREADSHEET_ID}/values/${DADOS_PESSOAIS_SHEET}`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`
@@ -118,14 +121,36 @@ serve(async (req) => {
       }
     )
 
-    if (!sheetResponse.ok) {
-      throw new Error(`Erro ao buscar dados: ${sheetResponse.status}`)
+    if (!dadosPessoaisResponse.ok) {
+      throw new Error(`Erro ao buscar dados pessoais: ${dadosPessoaisResponse.status}`)
     }
 
-    const sheetData = await sheetResponse.json()
-    const rows = sheetData.values || []
+    const dadosPessoaisData = await dadosPessoaisResponse.json()
+    const dadosPessoaisRows = dadosPessoaisData.values || []
 
-    if (rows.length === 0) {
+    // Buscar dados da aba "matriculas"
+    console.log('📚 Buscando dados da aba "matriculas"...')
+    const matriculasResponse = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_SPREADSHEET_ID}/values/${MATRICULAS_SHEET}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      }
+    )
+
+    // Se a aba "matriculas" não existir ou der erro, consideramos que não há matrículas
+    let matriculasRows = []
+    if (matriculasResponse.ok) {
+      const matriculasData = await matriculasResponse.json()
+      matriculasRows = matriculasData.values || []
+      console.log(`📋 Encontradas ${matriculasRows.length} linhas na aba "matriculas"`)
+    } else {
+      console.log('⚠️ Aba "matriculas" não encontrada ou inacessível - considerando todos como pendentes')
+    }
+
+    if (dadosPessoaisRows.length === 0) {
+      console.log('📭 Nenhum dado encontrado na aba "dados pessoais"')
       return new Response(
         JSON.stringify([]),
         { 
@@ -137,51 +162,65 @@ serve(async (req) => {
       )
     }
 
-    // Primeira linha são os cabeçalhos
-    const headers = rows[0]
-    const dataRows = rows.slice(1)
+    // Processar dados pessoais (primeira linha são cabeçalhos)
+    const dadosPessoaisDataRows = dadosPessoaisRows.slice(1)
+    console.log(`👥 Encontrados ${dadosPessoaisDataRows.length} alunos na aba "dados pessoais"`)
 
-    // Filtrar apenas registros com status "Pendente" e converter para formato esperado
-    const pendingEnrollments = dataRows
+    // Processar matrículas (primeira linha são cabeçalhos, se existir)
+    const matriculasDataRows = matriculasRows.length > 0 ? matriculasRows.slice(1) : []
+    console.log(`🎓 Encontrados ${matriculasDataRows.length} registros na aba "matriculas"`)
+
+    // Criar lista de CPFs que já estão matriculados
+    const cpfsMatriculados = new Set()
+    matriculasDataRows.forEach(row => {
+      const cpf = row[2] || '' // CPF está na coluna 3 (índice 2) na aba matriculas
+      if (cpf.trim()) {
+        cpfsMatriculados.add(cpf.trim())
+      }
+    })
+
+    console.log(`🔍 CPFs já matriculados: ${cpfsMatriculados.size}`)
+
+    // Filtrar alunos que estão em "dados pessoais" mas NÃO estão em "matriculas"
+    const pendingEnrollments = dadosPessoaisDataRows
       .map((row, index) => {
-        const enrollment = {
+        const cpf = row[3] || '' // CPF está na coluna 4 (índice 3)
+        const nome = row[1] || '' // Nome está na coluna 2 (índice 1)
+        const email = row[5] || '' // Email está na coluna 6 (índice 5)
+        const telefone = row[4] || '' // Telefone está na coluna 5 (índice 4)
+
+        return {
           rowIndex: index + 2, // +2 porque começamos da linha 2 (após cabeçalho)
-          dataCadastro: row[0] || '',
-          nome: row[1] || '',
-          rg: row[2] || '',
-          cpf: row[3] || '',
-          telefone: row[4] || '',
-          email: row[5] || '',
-          sexo: row[6] || '',
-          estadoCivil: row[7] || '',
-          dataNascimento: row[8] || '',
-          cidadeNascimento: row[9] || '',
-          ufNascimento: row[10] || '',
-          nacionalidade: row[11] || '',
-          escolaridade: row[12] || '',
-          profissao: row[13] || '',
-          cargoIgreja: row[14] || '',
-          enderecoRua: row[15] || '',
-          cep: row[16] || '',
-          numero: row[17] || '',
-          complemento: row[18] || '',
-          bairro: row[19] || '',
-          cidade: row[20] || '',
-          uf: row[21] || '',
-          status: row[22] || 'Pendente'
+          nome: nome.trim(),
+          cpf: cpf.trim(),
+          email: email.trim(),
+          telefone: telefone.trim()
         }
-        return enrollment
       })
-      .filter(enrollment => enrollment.status === 'Pendente')
-      .map(enrollment => ({
-        id: enrollment.rowIndex.toString(),
-        nome: enrollment.nome,
-        cpf: enrollment.cpf,
-        email: enrollment.email,
-        telefone: enrollment.telefone
+      .filter(student => {
+        // Filtrar apenas alunos que têm dados válidos
+        if (!student.nome || !student.cpf) {
+          return false
+        }
+        
+        // Verificar se o CPF NÃO está na lista de matriculados
+        const isNotEnrolled = !cpfsMatriculados.has(student.cpf)
+        
+        if (isNotEnrolled) {
+          console.log(`📋 Aluno pendente encontrado: ${student.nome} (CPF: ${student.cpf})`)
+        }
+        
+        return isNotEnrolled
+      })
+      .map(student => ({
+        id: student.rowIndex.toString(),
+        nome: student.nome,
+        cpf: student.cpf,
+        email: student.email,
+        telefone: student.telefone
       }))
 
-    console.log(`✅ Encontradas ${pendingEnrollments.length} matrículas pendentes`)
+    console.log(`✅ Total de matrículas pendentes encontradas: ${pendingEnrollments.length}`)
 
     return new Response(
       JSON.stringify(pendingEnrollments),
