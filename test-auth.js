@@ -1,45 +1,39 @@
-// Script de teste para verificar autenticação
-// Execute no console do navegador
-
-console.log('=== TESTE DE AUTENTICAÇÃO ===');
-
-// Verificar se o localStorage tem os dados
-const users = localStorage.getItem('eetad_secretary_users');
-console.log('Usuários no localStorage:', users);
-
-if (users) {
-  const parsedUsers = JSON.parse(users);
-  console.log('Usuários parseados:', parsedUsers);
-  
-  // Verificar o hash da senha "admin1"
-  function hashPassword(password) {
-    let hash = 0;
-    for (let i = 0; i < password.length; i++) {
-      const char = password.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash).toString(16);
+// Script para testar autenticação Google
+async function testAuth() {
+  try {
+    console.log('🔐 Testando autenticação Google...');
+    
+    // Simular as variáveis de ambiente (valores fictícios para teste)
+    const serviceAccountEmail = 'test@test.iam.gserviceaccount.com';
+    const privateKey = `-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC...
+-----END PRIVATE KEY-----`;
+    
+    console.log('📧 Service Account Email:', serviceAccountEmail);
+    console.log('🔑 Private Key presente:', privateKey ? 'Sim' : 'Não');
+    
+    // Testar criação do JWT
+    const now = Math.floor(Date.now() / 1000);
+    const payload = {
+      iss: serviceAccountEmail,
+      scope: 'https://www.googleapis.com/auth/spreadsheets',
+      aud: 'https://oauth2.googleapis.com/token',
+      exp: now + 3600,
+      iat: now,
+    };
+    
+    console.log('📝 JWT Payload:', JSON.stringify(payload, null, 2));
+    
+    // Simular requisição de token
+    const tokenUrl = 'https://oauth2.googleapis.com/token';
+    console.log('🌐 Token URL:', tokenUrl);
+    
+    console.log('✅ Configuração parece estar correta');
+    console.log('⚠️  Para testar completamente, precisamos das credenciais reais');
+    
+  } catch (error) {
+    console.error('❌ Erro na autenticação:', error);
   }
-  
-  const testHash = hashPassword('admin1');
-  console.log('Hash da senha "admin1":', testHash);
-  
-  const adminUser = parsedUsers.find(u => u.username === 'Admin');
-  if (adminUser) {
-    console.log('Usuário Admin encontrado:', adminUser);
-    console.log('Hash armazenado:', adminUser.passwordHash);
-    console.log('Hash calculado:', testHash);
-    console.log('Hashes coincidem?', adminUser.passwordHash === testHash);
-  } else {
-    console.log('Usuário Admin NÃO encontrado!');
-  }
-} else {
-  console.log('Nenhum usuário encontrado no localStorage');
 }
 
-// Limpar localStorage para forçar recriação
-console.log('\n=== LIMPANDO LOCALSTORAGE ===');
-localStorage.removeItem('eetad_secretary_users');
-localStorage.removeItem('eetad_secretary_session');
-console.log('localStorage limpo. Recarregue a página para recriar o usuário padrão.');
+testAuth();

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Matrículas Pendentes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .button.danger {
+            background: #dc3545;
+        }
+        .button.danger:hover {
+            background: #c82333;
+        }
+        .log-area {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .student-card {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 5px 0;
+            background: #f9f9f9;
+        }
+        .status {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Teste - Matrículas Pendentes</h1>
+        <p>Esta página testa a função get-pending-enrollments para verificar se está retornando dados corretamente.</p>
+        
+        <div>
+            <button class="button" onclick="testPendingEnrollments()">🔍 Testar Função Normal</button>
+            <button class="button" onclick="testPendingEnrollmentsDebug()">🐛 Testar com Debug</button>
+            <button class="button danger" onclick="clearLogs()">🗑️ Limpar Logs</button>
+        </div>
+
+        <div id="status" class="status warning">⏳ Aguardando teste...</div>
+
+        <h3>📋 Alunos Pendentes Encontrados:</h3>
+        <div id="students-list"></div>
+
+        <h3>📝 Logs de Execução:</h3>
+        <div id="logs" class="log-area"></div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logs = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            logs.innerHTML += `[${timestamp}] ${message}\n`;
+            logs.scrollTop = logs.scrollHeight;
+            console.log(message);
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+            document.getElementById('students-list').innerHTML = '';
+            document.getElementById('status').className = 'status warning';
+            document.getElementById('status').textContent = '⏳ Aguardando teste...';
+        }
+
+        function updateStatus(message, type = 'warning') {
+            const status = document.getElementById('status');
+            status.className = `status ${type}`;
+            status.textContent = message;
+        }
+
+        function displayStudents(students) {
+            const container = document.getElementById('students-list');
+            container.innerHTML = '';
+
+            if (!students || students.length === 0) {
+                container.innerHTML = '<p>❌ Nenhum aluno pendente encontrado</p>';
+                return;
+            }
+
+            students.forEach((student, index) => {
+                const card = document.createElement('div');
+                card.className = 'student-card';
+                card.innerHTML = `
+                    <strong>👤 Aluno ${index + 1}:</strong> ${student.nome}<br>
+                    <strong>📄 CPF:</strong> ${student.cpf}<br>
+                    <strong>📧 Email:</strong> ${student.email || 'Não informado'}<br>
+                    <strong>📞 Telefone:</strong> ${student.telefone || 'Não informado'}<br>
+                    <strong>🆔 ID:</strong> ${student.id}
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        async function testPendingEnrollments() {
+            log('🔍 Iniciando teste da função get-pending-enrollments...');
+            updateStatus('⏳ Testando função...', 'warning');
+
+            try {
+                log('📡 Fazendo requisição para a função Supabase...');
+                
+                // Simular a chamada do Supabase usando fetch direto para a URL da função
+                const SUPABASE_URL = "https://umkizxftwrwqiiahjbrr.supabase.co";
+                const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs";
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-pending-enrollments`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({})
+                });
+
+                log(`📊 Status da resposta: ${response.status}`);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`❌ Erro HTTP: ${response.status} ${response.statusText}`);
+                    log(`📄 Resposta de erro: ${errorText}`);
+                    throw new Error(`Erro HTTP: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                log('✅ Resposta recebida com sucesso');
+                log(`📋 Dados recebidos: ${JSON.stringify(data, null, 2)}`);
+
+                // Verificar estrutura da resposta
+                if (data.pendingEnrollments) {
+                    const students = data.pendingEnrollments;
+                    log(`👥 Total de alunos pendentes: ${students.length}`);
+                    
+                    students.forEach((student, index) => {
+                        log(`👤 Aluno ${index + 1}: ${student.nome} (CPF: ${student.cpf})`);
+                    });
+
+                    displayStudents(students);
+                    updateStatus(`✅ ${students.length} alunos pendentes encontrados`, 'success');
+                } else if (Array.isArray(data)) {
+                    log(`👥 Total de alunos pendentes (array direto): ${data.length}`);
+                    displayStudents(data);
+                    updateStatus(`✅ ${data.length} alunos pendentes encontrados`, 'success');
+                } else {
+                    log('⚠️ Estrutura de resposta inesperada');
+                    updateStatus('⚠️ Estrutura de resposta inesperada', 'warning');
+                }
+
+            } catch (error) {
+                log(`❌ Erro durante o teste: ${error.message}`);
+                updateStatus('❌ Erro durante o teste', 'error');
+                console.error('Erro completo:', error);
+            }
+        }
+
+        async function testPendingEnrollmentsDebug() {
+            log('🐛 Iniciando teste com debug da função get-pending-enrollments...');
+            updateStatus('⏳ Testando com debug...', 'warning');
+
+            try {
+                log('📡 Fazendo requisição com debug ativado...');
+                
+                const SUPABASE_URL = "https://umkizxftwrwqiiahjbrr.supabase.co";
+                const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs";
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-pending-enrollments`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({ debug: true })
+                });
+
+                log(`📊 Status da resposta: ${response.status}`);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`❌ Erro HTTP: ${response.status} ${response.statusText}`);
+                    log(`📄 Resposta de erro: ${errorText}`);
+                    throw new Error(`Erro HTTP: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                log('✅ Resposta debug recebida com sucesso');
+                log(`🐛 Dados debug completos: ${JSON.stringify(data, null, 2)}`);
+
+                if (data.debug) {
+                    log('🔍 Informações de debug:');
+                    log(`- Credenciais configuradas: ${data.debug.credentialsConfigured}`);
+                    log(`- Total linhas dados pessoais: ${data.debug.totalDadosPessoaisRows}`);
+                    log(`- Total linhas matrículas: ${data.debug.totalMatriculasRows}`);
+                    log(`- CPFs matriculados: ${JSON.stringify(data.debug.enrolledCPFs)}`);
+                    
+                    if (data.debug.dadosPessoaisHeaders) {
+                        log(`- Cabeçalhos dados pessoais: ${JSON.stringify(data.debug.dadosPessoaisHeaders)}`);
+                    }
+                    
+                    if (data.debug.firstThreeDadosPessoaisRows) {
+                        log('- Primeiras 3 linhas de dados pessoais:');
+                        data.debug.firstThreeDadosPessoaisRows.forEach((row, index) => {
+                            log(`  Linha ${row.rowIndex}: ${JSON.stringify(row.extractedData)}`);
+                        });
+                    }
+                }
+
+                if (data.pendingEnrollments) {
+                    const students = data.pendingEnrollments;
+                    log(`👥 Total de alunos pendentes: ${students.length}`);
+                    displayStudents(students);
+                    updateStatus(`✅ Debug: ${students.length} alunos pendentes`, 'success');
+                } else {
+                    updateStatus('⚠️ Debug: Nenhum aluno pendente', 'warning');
+                }
+
+            } catch (error) {
+                log(`❌ Erro durante o teste debug: ${error.message}`);
+                updateStatus('❌ Erro durante o teste debug', 'error');
+                console.error('Erro completo:', error);
+            }
+        }
+
+        // Executar teste automático ao carregar a página
+        window.addEventListener('load', () => {
+            log('🚀 Página carregada. Pronto para testes.');
+        });
+    </script>
+</body>
+</html>

@@ -16,7 +16,7 @@ interface SecretaryUser {
 }
 
 interface UserRequest {
-  action: 'login' | 'create' | 'list' | 'delete';
+  action: 'login' | 'create' | 'list' | 'delete' | 'setup-headers';
   username?: string;
   password?: string;
   userData?: {
@@ -165,6 +165,9 @@ const handler = async (req: Request): Promise<Response> => {
       case 'delete':
         return await handleDeleteUser(spreadsheetId, accessToken, requestData.userId!);
       
+      case 'setup-headers':
+        return await handleSetupHeaders(spreadsheetId, accessToken);
+      
       default:
         throw new Error('Ação não reconhecida');
     }
@@ -183,7 +186,7 @@ const handler = async (req: Request): Promise<Response> => {
 
 // Função para fazer login
 async function handleLogin(spreadsheetId: string, accessToken: string, username: string, password: string): Promise<Response> {
-  const range = 'usuarios!A:G';
+  const range = 'usuarios!A:H';
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`;
   
   const response = await fetch(url, {
@@ -268,7 +271,7 @@ async function handleCreateUser(spreadsheetId: string, accessToken: string, user
   }
 
   // Verificar se usuário já existe
-  const checkRange = 'usuarios!A:G';
+  const checkRange = 'usuarios!A:H';
   const checkUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${checkRange}`;
   
   const checkResponse = await fetch(checkUrl, {
@@ -299,10 +302,11 @@ async function handleCreateUser(spreadsheetId: string, accessToken: string, user
     userData.fullName,     // Full Name
     hashPassword(userData.password), // Password Hash
     new Date().toISOString(), // Created At
-    '' // Last Login (vazio inicialmente)
+    '', // Last Login (vazio inicialmente)
+    'ATIVO' // Status
   ];
 
-  const appendRange = 'usuarios!A:G';
+  const appendRange = 'usuarios!A:H';
   const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${appendRange}:append?valueInputOption=RAW`;
   
   const appendResponse = await fetch(appendUrl, {
@@ -327,7 +331,7 @@ async function handleCreateUser(spreadsheetId: string, accessToken: string, user
 
 // Função para listar usuários
 async function handleListUsers(spreadsheetId: string, accessToken: string): Promise<Response> {
-  const range = 'usuarios!A:G';
+  const range = 'usuarios!A:H';
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`;
   
   const response = await fetch(url, {
@@ -357,6 +361,80 @@ async function handleListUsers(spreadsheetId: string, accessToken: string): Prom
   });
 }
 
+// Função para configurar cabeçalho da aba usuarios
+async function handleSetupHeaders(spreadsheetId: string, accessToken: string): Promise<Response> {
+  const range = 'usuarios!A1:H1';
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=RAW`;
+  
+  const headers = [
+    'ID',
+    'Username', 
+    'Email',
+    'Full Name',
+    'Password Hash',
+    'Created At',
+    'Last Login',
+    'Status'
+  ];
+
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      values: [headers]
+    }),
+  });
+
+  if (response.ok) {
+    // Agora vamos criar o usuário Admin padrão
+    const adminUser = [
+      'admin-default',
+      'Admin',
+      'simacjr@hotmail.com',
+      'Administrador',
+      '54c5993e', // Hash da senha 'admin1'
+      new Date().toISOString(),
+      '',
+      'ATIVO'
+    ];
+
+    const appendRange = 'usuarios!A:H';
+    const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${appendRange}:append?valueInputOption=RAW`;
+    
+    const appendResponse = await fetch(appendUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        values: [adminUser]
+      }),
+    });
+
+    if (appendResponse.ok) {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Cabeçalho configurado e usuário Admin criado' 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } else {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Cabeçalho configurado, mas erro ao criar usuário Admin' 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  } else {
+    throw new Error('Erro ao configurar cabeçalho da planilha');
+  }
+}
+
 // Função para deletar usuário
 async function handleDeleteUser(spreadsheetId: string, accessToken: string, userId: string): Promise<Response> {
   // Não permitir deletar o usuário Admin padrão
@@ -371,7 +449,7 @@ async function handleDeleteUser(spreadsheetId: string, accessToken: string, user
 
   // Implementar lógica de deleção (marcar como inativo ou remover linha)
   // Por simplicidade, vamos marcar como inativo alterando o username
-  const range = 'usuarios!A:G';
+  const range = 'usuarios!A:H';
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`;
   
   const response = await fetch(url, {

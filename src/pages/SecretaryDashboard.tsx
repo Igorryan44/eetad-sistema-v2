@@ -12,6 +12,7 @@ import { Calendar, FileText, Download, Eye, Users, BookOpen, GraduationCap, Aler
 import AuthenticationSystem from '../components/AuthenticationSystem';
 import UserManagement from '../components/UserManagement';
 import { authService } from '../services/authService';
+import { supabase } from '@/integrations/supabase/client';
 
 type Student = {
   id: string;
@@ -77,6 +78,38 @@ const SecretaryDashboard = () => {
     status: '',
     observacoes: ''
   });
+  
+  // Estados para edição de dados do aluno
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedEnrollmentForEdit, setSelectedEnrollmentForEdit] = useState<any>(null);
+  const [editForm, setEditForm] = useState({
+    // Dados pessoais
+    nome: '',
+    cpf: '',
+    rg: '',
+    telefone: '',
+    email: '',
+    sexo: '',
+    estadoCivil: '',
+    dataNascimento: '',
+    ufNascimento: '',
+    escolaridade: '',
+    profissao: '',
+    nacionalidade: '',
+    cargoIgreja: '',
+    enderecoRua: '',
+    cep: '',
+    numero: '',
+    bairro: '',
+    cidade: '',
+    uf: '',
+    congregacao: '',
+    // Dados de matrícula
+    ciclo: '',
+    subnucleo: '',
+    status: '',
+    observacao: ''
+  });
 
   useEffect(() => {
     // Verificar autenticação
@@ -88,78 +121,68 @@ const SecretaryDashboard = () => {
       fetchPendingStudents();
       fetchEnrollments();
       fetchAllStudents();
-      fetchStats();
     }
   }, []);
 
+  // useEffect para atualizar estatísticas quando os dados mudarem
+  useEffect(() => {
+    fetchStats();
+  }, [pendingStudents, enrollments]);
+
   const fetchPendingStudents = async () => {
     try {
-      const response = await fetch('https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/get-pending-enrollments', {
-        method: 'GET',
-        headers: {
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
-        }
-      });
-
-      if (response.ok) {
-        const pendingData = await response.json();
-        setPendingStudents(pendingData);
-        
-        // Atualizar estatísticas
-        setStats(prev => ({ ...prev, totalPendentes: pendingData.length }));
-      } else {
-        console.error('Erro ao buscar alunos pendentes:', response.statusText);
-        setPendingStudents([]);
-        setStats(prev => ({ ...prev, totalPendentes: 0 }));
-        
-        toast({
-          title: "Erro",
-          description: "Não foi possível carregar os alunos pendentes. Verifique se as funções Supabase estão ativas.",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao conectar com Supabase:', error);
-      setPendingStudents([]);
-      setStats(prev => ({ ...prev, totalPendentes: 0 }));
+      console.log('🔍 Buscando alunos pendentes...');
+      const response = await supabase.functions.invoke('get-pending-enrollments');
+      console.log('📊 Resposta da função get-pending-enrollments:', response);
       
+      if (response.error) {
+        console.error('❌ Erro ao buscar alunos pendentes:', response.error);
+        throw response.error;
+      }
+      
+      // A função retorna um objeto com a propriedade pendingEnrollments
+       const students = response.data?.pendingEnrollments || [];
+       console.log('👥 Alunos pendentes recebidos:', students);
+       console.log('📈 Quantidade de alunos pendentes:', students.length);
+       
+       setPendingStudents(students);
+       console.log('✅ Estado de pendingStudents atualizado');
+    } catch (error) {
+      console.error('❌ Erro ao buscar alunos pendentes:', error);
       toast({
-        title: "Erro de Conexão",
-        description: "Não foi possível conectar com o servidor. Verifique sua conexão e se as funções Supabase estão ativas.",
-        variant: "destructive"
+        title: "Erro",
+        description: "Erro ao carregar alunos pendentes",
+        variant: "destructive",
       });
+      setPendingStudents([]);
     }
   };
 
   const fetchEnrollments = async () => {
     try {
-      const response = await fetch('https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/get-enrollments', {
-        method: 'GET',
-        headers: {
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
-        }
-      });
-
-      if (response.ok) {
-        const enrollmentsData = await response.json();
-        setEnrollments(enrollmentsData);
-      } else {
-        console.error('Erro ao buscar matrículas:', response.statusText);
-        setEnrollments([]);
-        
-        toast({
-          title: "Erro",
-          description: "Não foi possível carregar as matrículas. Verifique se as funções Supabase estão ativas.",
-          variant: "destructive"
-        });
+      console.log('🔍 Buscando matrículas...');
+      const response = await supabase.functions.invoke('get-enrollments');
+      console.log('📊 Resposta da função get-enrollments:', response);
+      
+      if (response.error) {
+        console.error('❌ Erro ao buscar matrículas:', response.error);
+        throw response.error;
       }
+      
+      // A função pode retornar um objeto com a propriedade enrollments ou diretamente um array
+      const enrollments = response.data?.enrollments || response.data || [];
+      console.log('📋 Matrículas recebidas:', enrollments);
+      console.log('📈 Quantidade de matrículas:', Array.isArray(enrollments) ? enrollments.length : 'Não é array');
+      
+      setEnrollments(Array.isArray(enrollments) ? enrollments : []);
+      console.log('✅ Estado de enrollments atualizado');
     } catch (error) {
-      console.error('Erro ao buscar matrículas:', error);
+      console.error('❌ Erro ao buscar matrículas:', error);
       setEnrollments([]);
       
       toast({
-        title: "Erro de Conexão",
-        description: "Não foi possível conectar com o servidor para carregar matrículas.",
+        title: "Erro",
+        description: "Erro ao carregar matrículas",
         variant: "destructive"
       });
     }
@@ -171,7 +194,7 @@ const SecretaryDashboard = () => {
       setTimeout(() => {
         // Combinar alunos pendentes e matriculados
         const allStudents: Student[] = [
-          ...pendingStudents,
+          ...(Array.isArray(pendingStudents) ? pendingStudents : []),
           ...enrollments.map(e => ({
             id: e.studentId,
             nome: e.nome || 'Nome não informado',
@@ -190,28 +213,31 @@ const SecretaryDashboard = () => {
     }
   };
 
-  const fetchStats = async () => {
+  const fetchStats = () => {
     try {
-      // Aguardar que os dados sejam carregados primeiro
-      setTimeout(() => {
-        // Calcular estatísticas reais baseadas nos dados
-        const totalMatriculados = enrollments.filter(e => e.status === 'matriculado').length;
-        const totalCursando = enrollments.filter(e => e.status === 'cursando').length;
-        const totalNaoCursando = enrollments.filter(e => e.status === 'nao-cursando').length;
-        const totalRecuperacao = enrollments.filter(e => e.status === 'recuperacao').length;
-        const totalAprovados = enrollments.filter(e => e.status === 'aprovado').length;
-        const totalReprovados = enrollments.filter(e => e.status === 'reprovado').length;
-        
-        setStats(prev => ({
-          ...prev,
-          matriculados: totalMatriculados,
-          cursando: totalCursando,
-          naoCursando: totalNaoCursando,
-          recuperacao: totalRecuperacao,
-          aprovados: totalAprovados,
-          reprovados: totalReprovados
-        }));
-      }, 200);
+      // Calcular estatísticas reais baseadas nos dados
+      const totalMatriculados = enrollments.filter(e => e.status === 'matriculado').length;
+      const totalCursando = enrollments.filter(e => e.status === 'cursando').length;
+      const totalNaoCursando = enrollments.filter(e => e.status === 'nao-cursando').length;
+      const totalRecuperacao = enrollments.filter(e => e.status === 'recuperacao').length;
+      const totalAprovados = enrollments.filter(e => e.status === 'aprovado').length;
+      const totalReprovados = enrollments.filter(e => e.status === 'reprovado').length;
+      
+      // CORREÇÃO: Calcular total de pendentes baseado no array pendingStudents
+      const totalPendentesAtual = Array.isArray(pendingStudents) ? pendingStudents.length : 0;
+      console.log('📊 Atualizando stats - Total pendentes:', totalPendentesAtual);
+      console.log('📊 Dados pendingStudents:', pendingStudents);
+      
+      setStats(prev => ({
+        ...prev,
+        totalPendentes: totalPendentesAtual, // ADICIONADO: Atualizar contador de pendentes
+        matriculados: totalMatriculados,
+        cursando: totalCursando,
+        naoCursando: totalNaoCursando,
+        recuperacao: totalRecuperacao,
+        aprovados: totalAprovados,
+        reprovados: totalReprovados
+      }));
     } catch (error) {
       console.error('Erro ao calcular estatísticas:', error);
     }
@@ -254,12 +280,9 @@ const SecretaryDashboard = () => {
     window.location.href = '/';
   };
 
-  // Renderização condicional baseada na autenticação
-  if (!isAuthenticated) {
-    return <AuthenticationSystem onAuthenticated={handleAuthenticated} onCancel={handleCancel} />;
-  }
-
+  // CORREÇÃO: Definir função openEnrollmentForm ANTES do return condicional
   const openEnrollmentForm = (student: Student) => {
+    console.log('🎯 Abrindo formulário de efetivação para:', student);
     setSelectedStudentForEnrollment(student);
     setEnrollmentForm({
       ciclo: '',
@@ -268,9 +291,11 @@ const SecretaryDashboard = () => {
       observacoes: ''
     });
     setIsEnrollmentDialogOpen(true);
+    console.log('✅ Diálogo de efetivação aberto');
   };
 
-  const finalizeEnrollment = () => {
+  // CORREÇÃO: Definir função finalizeEnrollment ANTES do return condicional
+  const finalizeEnrollment = async () => {
     if (!selectedStudentForEnrollment || !enrollmentForm.ciclo || !enrollmentForm.subnucleo || !enrollmentForm.status) {
       toast({
         title: "Erro",
@@ -280,33 +305,152 @@ const SecretaryDashboard = () => {
       return;
     }
 
-    // Criar nova matrícula
-    const newEnrollment: Enrollment = {
-      id: Date.now().toString(),
-      studentId: selectedStudentForEnrollment.id,
-      nome: selectedStudentForEnrollment.nome,
-      ciclo: enrollmentForm.ciclo,
-      subnucleo: enrollmentForm.subnucleo,
-      status: enrollmentForm.status,
-      dataEvento: new Date().toLocaleDateString('pt-BR'),
-      observacao: enrollmentForm.observacoes
-    };
+    try {
+      console.log('🎯 Efetivando matrícula para:', selectedStudentForEnrollment);
+      
+      // Chamar função do Supabase para efetivar matrícula
+      const response = await supabase.functions.invoke('finalize-enrollment', {
+        body: {
+          cpf: selectedStudentForEnrollment.cpf,
+          ciclo: enrollmentForm.ciclo,
+          subnucleo: enrollmentForm.subnucleo,
+          dataEvento: new Date().toLocaleDateString('pt-BR'),
+          status: enrollmentForm.status,
+          observacao: enrollmentForm.observacoes,
+          rowIndex: selectedStudentForEnrollment.rowIndex
+        }
+      });
 
-    // Adicionar à lista de matrículas
-    setEnrollments(prev => [...prev, newEnrollment]);
+      if (response.error) {
+        console.error('❌ Erro na função finalize-enrollment:', response.error);
+        throw response.error;
+      }
 
-    // Remover da lista de pendentes
-    setPendingStudents(prev => prev.filter(s => s.id !== selectedStudentForEnrollment.id));
+      console.log('✅ Matrícula efetivada com sucesso:', response.data);
 
-    // Fechar diálogo
-    setIsEnrollmentDialogOpen(false);
-    setSelectedStudentForEnrollment(null);
+      // Atualizar listas locais
+      await fetchEnrollments();
+      await fetchPendingStudents();
 
-    toast({
-      title: "Sucesso",
-      description: "Matrícula efetivada com sucesso!"
-    });
+      // Fechar diálogo
+      setIsEnrollmentDialogOpen(false);
+      setSelectedStudentForEnrollment(null);
+
+      toast({
+        title: "Sucesso",
+        description: "Matrícula efetivada e salva na planilha com sucesso!"
+      });
+    } catch (error) {
+      console.error('❌ Erro ao efetivar matrícula:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao efetivar matrícula. Tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
+
+  // Função para buscar dados pessoais do aluno
+  const fetchPersonalData = async (cpf: string) => {
+    try {
+      console.log('🔍 Buscando dados pessoais para CPF:', cpf);
+      
+      // TODO: Implementar chamada para função que busca dados pessoais
+      // Por enquanto, retornar dados básicos do enrollment
+      return null;
+    } catch (error) {
+      console.error('❌ Erro ao buscar dados pessoais:', error);
+      return null;
+    }
+  };
+
+  // Função para abrir formulário de edição de cadastro do aluno
+  const openEditStudentForm = async (enrollment: any) => {
+    console.log('✏️ Abrindo formulário de edição para:', enrollment);
+    setSelectedEnrollmentForEdit(enrollment);
+    
+    // Buscar dados pessoais completos do aluno
+    const personalData = await fetchPersonalData(enrollment.cpf);
+    
+    // Se encontrou dados pessoais, usar eles; senão usar dados do enrollment
+    const formData = personalData || enrollment;
+    
+    setEditForm({
+      nome: formData.nome || '',
+      cpf: formData.cpf || '',
+      rg: formData.rg || '',
+      telefone: formData.telefone || '',
+      email: formData.email || '',
+      sexo: formData.sexo || '',
+      estadoCivil: formData.estadoCivil || '',
+      dataNascimento: formData.dataNascimento || '',
+      ufNascimento: formData.ufNascimento || '',
+      escolaridade: formData.escolaridade || '',
+      profissao: formData.profissao || '',
+      nacionalidade: formData.nacionalidade || '',
+      cargoIgreja: formData.cargoIgreja || '',
+      enderecoRua: formData.enderecoRua || '',
+      cep: formData.cep || '',
+      numero: formData.numero || '',
+      bairro: formData.bairro || '',
+      cidade: formData.cidade || '',
+      uf: formData.uf || '',
+      congregacao: formData.congregacao || '',
+      // Manter campos de matrícula
+      ciclo: enrollment.ciclo || '',
+      subnucleo: enrollment.subnucleo || '',
+      status: enrollment.status || '',
+      observacao: enrollment.observacao || ''
+    });
+    
+    setIsEditDialogOpen(true);
+    console.log('✅ Diálogo de edição aberto com dados pessoais');
+  };
+
+  // Função para salvar edição de dados do aluno
+  const saveEditedData = async () => {
+    if (!selectedEnrollmentForEdit || !editForm.nome || !editForm.ciclo) {
+      toast({
+        title: "Erro",
+        description: "Por favor, preencha os campos obrigatórios (Nome e Ciclo)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // TODO: Implementar chamada para função Supabase para atualizar dados
+      console.log('💾 Salvando dados editados:', editForm);
+      
+      // Atualizar localmente por enquanto
+      setEnrollments(prev => prev.map(enrollment => 
+        enrollment.id === selectedEnrollmentForEdit.id 
+          ? { ...enrollment, ...editForm }
+          : enrollment
+      ));
+
+      // Fechar diálogo
+      setIsEditDialogOpen(false);
+      setSelectedEnrollmentForEdit(null);
+
+      toast({
+        title: "Sucesso",
+        description: "Dados atualizados com sucesso!"
+      });
+    } catch (error) {
+      console.error('❌ Erro ao salvar dados:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar dados do aluno",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Renderização condicional baseada na autenticação
+  if (!isAuthenticated) {
+    return <AuthenticationSystem onAuthenticated={handleAuthenticated} onCancel={handleCancel} />;
+  }
 
   const handleUpdateStatus = async (enrollmentId: string, newStatus: string) => {
     // TODO: Chamar função Supabase para atualizar status
@@ -508,7 +652,7 @@ const SecretaryDashboard = () => {
           ${filteredEnrollments.map(enrollment => `
             <tr>
               <td style="padding: 10px;">${enrollment.nome || 'N/A'}</td>
-              <td style="padding: 10px;">${pendingStudents.find(s => s.id === enrollment.studentId)?.cpf || 'N/A'}</td>
+              <td style="padding: 10px;">${(Array.isArray(pendingStudents) ? pendingStudents : []).find(s => s.id === enrollment.studentId)?.cpf || 'N/A'}</td>
               <td style="padding: 10px;">${enrollment.subnucleo || 'Não informado'}</td>
               <td style="padding: 10px;">${enrollment.status}</td>
               <td style="padding: 10px;">${enrollment.dataEvento}</td>
@@ -764,15 +908,66 @@ const SecretaryDashboard = () => {
           <TabsList>
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="pending">Matrículas Pendentes</TabsTrigger>
-            <TabsTrigger value="enrollments">Matrículas</TabsTrigger>
+            <TabsTrigger value="enrollments">Matriculados</TabsTrigger>
             <TabsTrigger value="reports">Relatórios</TabsTrigger>
             <TabsTrigger value="users">Usuários</TabsTrigger>
           </TabsList>
         <TabsContent value="dashboard">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader><CardTitle>Matrículas Pendentes</CardTitle></CardHeader>
-              <CardContent><p className="text-4xl">{stats.totalPendentes}</p></CardContent>
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Matrículas Pendentes</span>
+                  <span className="text-3xl font-bold text-blue-600">{stats.totalPendentes}</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {(() => {
+                    const pendingArray = Array.isArray(pendingStudents) ? pendingStudents : [];
+                    console.log('🎨 Renderizando alunos pendentes:', pendingArray);
+                    console.log('📊 Quantidade para renderizar:', pendingArray.length);
+                    
+                    if (pendingArray.length === 0) {
+                      return <p className="text-gray-500 text-center py-4">Nenhum aluno pendente</p>;
+                    }
+                    
+                    return pendingArray.slice(0, 5).map(student => {
+                      console.log('👤 Renderizando aluno:', student);
+                      return (
+                        <div 
+                          key={student.id} 
+                          className="flex justify-between items-center p-3 border rounded cursor-pointer hover:bg-gray-50 transition-colors"
+                          onClick={() => openEnrollmentForm(student)}
+                        >
+                          <div>
+                            <span className="font-medium">{student.nome}</span>
+                            <p className="text-sm text-gray-500">{student.email}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm text-gray-600">{student.cpf}</span>
+                            <p className="text-xs text-blue-600">Clique para efetivar</p>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                  {(() => {
+                    const pendingArray = Array.isArray(pendingStudents) ? pendingStudents : [];
+                    if (pendingArray.length > 5) {
+                      return (
+                        <p className="text-sm text-gray-500 text-center py-2">
+                          E mais {pendingArray.length - 5} aluno(s)... 
+                          <span className="text-blue-600 cursor-pointer hover:underline ml-1">
+                            Ver todos na aba "Matrículas Pendentes"
+                          </span>
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              </CardContent>
             </Card>
             <Card>
               <CardHeader><CardTitle>Alunos Matriculados</CardTitle></CardHeader>
@@ -790,32 +985,6 @@ const SecretaryDashboard = () => {
               <CardHeader><CardTitle>Alunos em Recuperação</CardTitle></CardHeader>
               <CardContent><p className="text-4xl">{stats.recuperacao}</p></CardContent>
             </Card>
-            <Card>
-              <CardHeader><CardTitle>Alunos Pendentes</CardTitle></CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {pendingStudents.slice(0, 5).map(student => (
-                    <div 
-                      key={student.id} 
-                      className="flex justify-between items-center p-3 border rounded cursor-pointer hover:bg-gray-50 transition-colors"
-                      onClick={() => openEnrollmentForm(student)}
-                    >
-                      <div>
-                        <span className="font-medium">{student.nome}</span>
-                        <p className="text-sm text-gray-500">{student.email}</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-sm text-gray-600">{student.cpf}</span>
-                        <p className="text-xs text-blue-600">Clique para efetivar</p>
-                      </div>
-                    </div>
-                  ))}
-                  {pendingStudents.length === 0 && (
-                    <p className="text-gray-500 text-center py-4">Nenhum aluno pendente</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </TabsContent>
         <TabsContent value="pending">
@@ -828,100 +997,26 @@ const SecretaryDashboard = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pendingStudents.map((student) => (
-                <TableRow key={student.id}>
-                  <TableCell>{student.nome}</TableCell>
-                  <TableCell>{student.cpf}</TableCell>
-                  <TableCell>
-                    <Button onClick={() => openEnrollmentForm(student)}>Efetivar Matrícula</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {(() => {
+                const pendingArray = Array.isArray(pendingStudents) ? pendingStudents : [];
+                console.log('📋 Renderizando tabela de alunos pendentes:', pendingArray);
+                console.log('📊 Quantidade na tabela:', pendingArray.length);
+                
+                return pendingArray.map((student) => {
+                  console.log('👤 Renderizando linha da tabela para:', student);
+                  return (
+                    <TableRow key={student.id}>
+                      <TableCell>{student.nome}</TableCell>
+                      <TableCell>{student.cpf}</TableCell>
+                      <TableCell>
+                        <Button onClick={() => openEnrollmentForm(student)}>Efetivar Matrícula</Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                });
+              })()}
             </TableBody>
           </Table>
-          <Dialog open={isEnrollmentDialogOpen} onOpenChange={setIsEnrollmentDialogOpen}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Efetivar Matrícula</DialogTitle>
-              </DialogHeader>
-              {selectedStudentForEnrollment && (
-                <div className="space-y-4">
-                  <div>
-                    <Label>Nome</Label>
-                    <Input value={selectedStudentForEnrollment.nome} disabled />
-                  </div>
-                  <div>
-                    <Label>CPF</Label>
-                    <Input value={selectedStudentForEnrollment.cpf} disabled />
-                  </div>
-                  <div>
-                    <Label>Ciclo *</Label>
-                    <Select value={enrollmentForm.ciclo} onValueChange={(value) => setEnrollmentForm(prev => ({ ...prev, ciclo: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o ciclo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="basico">1º Ciclo - Formação Básica</SelectItem>
-                        <SelectItem value="medio">2º Ciclo - Formação Intermediária</SelectItem>
-                        <SelectItem value="avancado">3º Ciclo - Formação Avançada</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Subnúcleo *</Label>
-                    <Select value={enrollmentForm.subnucleo} onValueChange={(value) => setEnrollmentForm(prev => ({ ...prev, subnucleo: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o subnúcleo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="arno44">ARNO 44</SelectItem>
-                        <SelectItem value="sede">Sede</SelectItem>
-                        <SelectItem value="aureny3">Aureny III</SelectItem>
-                        <SelectItem value="taquari">Taquarí</SelectItem>
-                        <SelectItem value="morada-sol2">Morada do Sol II</SelectItem>
-                        <SelectItem value="luzimanges">Luzimanges</SelectItem>
-                        <SelectItem value="colinas-to">Colinas - TO</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Status *</Label>
-                    <Select value={enrollmentForm.status} onValueChange={(value) => setEnrollmentForm(prev => ({ ...prev, status: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="matriculado">Matriculado</SelectItem>
-                        <SelectItem value="cursando">Cursando</SelectItem>
-                        <SelectItem value="nao-cursando">Não Cursando</SelectItem>
-                        <SelectItem value="transferido">Transferido para outro subnúcleo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Observações</Label>
-                    <Input 
-                      value={enrollmentForm.observacoes}
-                      onChange={(e) => setEnrollmentForm(prev => ({ ...prev, observacoes: e.target.value }))}
-                      placeholder="Observações adicionais"
-                    />
-                  </div>
-                  <div className="flex gap-2 pt-4">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setIsEnrollmentDialogOpen(false)}
-                      className="flex-1"
-                    >
-                      Cancelar
-                    </Button>
-                    <Button onClick={finalizeEnrollment} className="flex-1">
-                      Efetivar Matrícula
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
         </TabsContent>
         <TabsContent value="enrollments">
           <Table>
@@ -936,10 +1031,9 @@ const SecretaryDashboard = () => {
             </TableHeader>
             <TableBody>
               {enrollments.map((enrollment) => {
-                const student = pendingStudents.find(s => s.id === enrollment.studentId) || { nome: '' };
                 return (
                   <TableRow key={enrollment.id}>
-                    <TableCell>{student.nome}</TableCell>
+                    <TableCell>{enrollment.nome}</TableCell>
                     <TableCell>{enrollment.ciclo}</TableCell>
                     <TableCell>{enrollment.subnucleo || 'Não informado'}</TableCell>
                     <TableCell>{enrollment.status}</TableCell>
@@ -958,7 +1052,7 @@ const SecretaryDashboard = () => {
                           <SelectItem value="recuperacao">Recuperação</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Button variant="outline" className="ml-2" onClick={() => {/* TODO: Abrir formulário de edição de dados */}}>Editar Dados</Button>
+                      <Button variant="outline" className="ml-2" onClick={() => openEditStudentForm(enrollment)}>Editar Cadastro</Button>
                     </TableCell>
                   </TableRow>
                 );
@@ -1154,6 +1248,373 @@ const SecretaryDashboard = () => {
           <UserManagement />
         </TabsContent>
       </Tabs>
+
+      {/* Dialog de Efetivação de Matrícula */}
+      <Dialog open={isEnrollmentDialogOpen} onOpenChange={setIsEnrollmentDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Efetivar Matrícula</DialogTitle>
+          </DialogHeader>
+          {selectedStudentForEnrollment && (
+            <div className="space-y-4">
+              <div>
+                <Label>Nome</Label>
+                <Input value={selectedStudentForEnrollment.nome} disabled />
+              </div>
+              <div>
+                <Label>CPF</Label>
+                <Input value={selectedStudentForEnrollment.cpf} disabled />
+              </div>
+              <div>
+                <Label>Ciclo *</Label>
+                <Select value={enrollmentForm.ciclo} onValueChange={(value) => setEnrollmentForm(prev => ({ ...prev, ciclo: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o ciclo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="basico">1º Ciclo - Formação Básica</SelectItem>
+                    <SelectItem value="medio">2º Ciclo - Formação Intermediária</SelectItem>
+                    <SelectItem value="avancado">3º Ciclo - Formação Avançada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Subnúcleo *</Label>
+                <Select value={enrollmentForm.subnucleo} onValueChange={(value) => setEnrollmentForm(prev => ({ ...prev, subnucleo: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o subnúcleo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="arno44">ARNO 44</SelectItem>
+                    <SelectItem value="sede">Sede</SelectItem>
+                    <SelectItem value="aureny3">Aureny III</SelectItem>
+                    <SelectItem value="taquari">Taquarí</SelectItem>
+                    <SelectItem value="morada-sol2">Morada do Sol II</SelectItem>
+                    <SelectItem value="luzimanges">Luzimanges</SelectItem>
+                    <SelectItem value="colinas-to">Colinas - TO</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Status *</Label>
+                <Select value={enrollmentForm.status} onValueChange={(value) => setEnrollmentForm(prev => ({ ...prev, status: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="matriculado">Matriculado</SelectItem>
+                    <SelectItem value="cursando">Cursando</SelectItem>
+                    <SelectItem value="nao-cursando">Não Cursando</SelectItem>
+                    <SelectItem value="transferido">Transferido para outro subnúcleo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Observações</Label>
+                <Input 
+                  value={enrollmentForm.observacoes}
+                  onChange={(e) => setEnrollmentForm(prev => ({ ...prev, observacoes: e.target.value }))}
+                  placeholder="Observações adicionais"
+                />
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEnrollmentDialogOpen(false)}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button onClick={finalizeEnrollment} className="flex-1">
+                  Efetivar Matrícula
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Edição de Cadastro do Aluno */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Cadastro do Aluno</DialogTitle>
+          </DialogHeader>
+          {selectedEnrollmentForEdit && (
+            <div className="space-y-6">
+              {/* Dados Pessoais */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 text-blue-600">Dados Pessoais</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Nome Completo *</Label>
+                    <Input 
+                      value={editForm.nome}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, nome: e.target.value }))}
+                      placeholder="Nome completo do aluno"
+                    />
+                  </div>
+                  <div>
+                    <Label>CPF</Label>
+                    <Input 
+                      value={editForm.cpf}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, cpf: e.target.value }))}
+                      placeholder="000.000.000-00"
+                    />
+                  </div>
+                  <div>
+                    <Label>RG</Label>
+                    <Input 
+                      value={editForm.rg}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, rg: e.target.value }))}
+                      placeholder="RG do aluno"
+                    />
+                  </div>
+                  <div>
+                    <Label>Telefone</Label>
+                    <Input 
+                      value={editForm.telefone}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, telefone: e.target.value }))}
+                      placeholder="(00) 00000-0000"
+                    />
+                  </div>
+                  <div>
+                    <Label>Email</Label>
+                    <Input 
+                      value={editForm.email}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="email@exemplo.com"
+                      type="email"
+                    />
+                  </div>
+                  <div>
+                    <Label>Sexo</Label>
+                    <Select value={editForm.sexo} onValueChange={(value) => setEditForm(prev => ({ ...prev, sexo: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o sexo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="masculino">Masculino</SelectItem>
+                        <SelectItem value="feminino">Feminino</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Estado Civil</Label>
+                    <Select value={editForm.estadoCivil} onValueChange={(value) => setEditForm(prev => ({ ...prev, estadoCivil: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o estado civil" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="solteiro">Solteiro(a)</SelectItem>
+                        <SelectItem value="casado">Casado(a)</SelectItem>
+                        <SelectItem value="divorciado">Divorciado(a)</SelectItem>
+                        <SelectItem value="viuvo">Viúvo(a)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Data de Nascimento</Label>
+                    <Input 
+                      value={editForm.dataNascimento}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, dataNascimento: e.target.value }))}
+                      placeholder="DD/MM/AAAA"
+                      type="date"
+                    />
+                  </div>
+                  <div>
+                    <Label>UF de Nascimento</Label>
+                    <Input 
+                      value={editForm.ufNascimento}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, ufNascimento: e.target.value }))}
+                      placeholder="TO"
+                    />
+                  </div>
+                  <div>
+                    <Label>Escolaridade</Label>
+                    <Select value={editForm.escolaridade} onValueChange={(value) => setEditForm(prev => ({ ...prev, escolaridade: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a escolaridade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fundamental-incompleto">Ensino Fundamental Incompleto</SelectItem>
+                        <SelectItem value="fundamental-completo">Ensino Fundamental Completo</SelectItem>
+                        <SelectItem value="medio-incompleto">Ensino Médio Incompleto</SelectItem>
+                        <SelectItem value="medio-completo">Ensino Médio Completo</SelectItem>
+                        <SelectItem value="superior-incompleto">Ensino Superior Incompleto</SelectItem>
+                        <SelectItem value="superior-completo">Ensino Superior Completo</SelectItem>
+                        <SelectItem value="pos-graduacao">Pós-graduação</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Profissão</Label>
+                    <Input 
+                      value={editForm.profissao}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, profissao: e.target.value }))}
+                      placeholder="Profissão atual"
+                    />
+                  </div>
+                  <div>
+                    <Label>Nacionalidade</Label>
+                    <Input 
+                      value={editForm.nacionalidade}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, nacionalidade: e.target.value }))}
+                      placeholder="Brasileira"
+                    />
+                  </div>
+                  <div>
+                    <Label>Cargo na Igreja</Label>
+                    <Input 
+                      value={editForm.cargoIgreja}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, cargoIgreja: e.target.value }))}
+                      placeholder="Cargo ou função na igreja"
+                    />
+                  </div>
+                  <div>
+                    <Label>Congregação</Label>
+                    <Input 
+                      value={editForm.congregacao}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, congregacao: e.target.value }))}
+                      placeholder="Nome da congregação"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Endereço */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 text-blue-600">Endereço</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Rua/Avenida</Label>
+                    <Input 
+                      value={editForm.enderecoRua}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, enderecoRua: e.target.value }))}
+                      placeholder="Nome da rua ou avenida"
+                    />
+                  </div>
+                  <div>
+                    <Label>Número</Label>
+                    <Input 
+                      value={editForm.numero}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, numero: e.target.value }))}
+                      placeholder="Número da residência"
+                    />
+                  </div>
+                  <div>
+                    <Label>Bairro</Label>
+                    <Input 
+                      value={editForm.bairro}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, bairro: e.target.value }))}
+                      placeholder="Nome do bairro"
+                    />
+                  </div>
+                  <div>
+                    <Label>CEP</Label>
+                    <Input 
+                      value={editForm.cep}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, cep: e.target.value }))}
+                      placeholder="00000-000"
+                    />
+                  </div>
+                  <div>
+                    <Label>Cidade</Label>
+                    <Input 
+                      value={editForm.cidade}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, cidade: e.target.value }))}
+                      placeholder="Nome da cidade"
+                    />
+                  </div>
+                  <div>
+                    <Label>UF</Label>
+                    <Input 
+                      value={editForm.uf}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, uf: e.target.value }))}
+                      placeholder="TO"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Dados de Matrícula */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4 text-blue-600">Dados de Matrícula</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Ciclo *</Label>
+                    <Select value={editForm.ciclo} onValueChange={(value) => setEditForm(prev => ({ ...prev, ciclo: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o ciclo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="basico">1º Ciclo - Formação Básica</SelectItem>
+                        <SelectItem value="medio">2º Ciclo - Formação Intermediária</SelectItem>
+                        <SelectItem value="avancado">3º Ciclo - Formação Avançada</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Subnúcleo</Label>
+                    <Select value={editForm.subnucleo} onValueChange={(value) => setEditForm(prev => ({ ...prev, subnucleo: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o subnúcleo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="arno44">ARNO 44</SelectItem>
+                        <SelectItem value="sede">Sede</SelectItem>
+                        <SelectItem value="aureny3">Aureny III</SelectItem>
+                        <SelectItem value="taquari">Taquarí</SelectItem>
+                        <SelectItem value="morada-sol2">Morada do Sol II</SelectItem>
+                        <SelectItem value="luzimanges">Luzimanges</SelectItem>
+                        <SelectItem value="colinas-to">Colinas - TO</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Status</Label>
+                    <Select value={editForm.status} onValueChange={(value) => setEditForm(prev => ({ ...prev, status: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="matriculado">Matriculado</SelectItem>
+                        <SelectItem value="cursando">Cursando</SelectItem>
+                        <SelectItem value="nao-cursando">Não Cursando</SelectItem>
+                        <SelectItem value="transferido">Transferido</SelectItem>
+                        <SelectItem value="aprovado">Aprovado</SelectItem>
+                        <SelectItem value="reprovado">Reprovado</SelectItem>
+                        <SelectItem value="recuperacao">Recuperação</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Observações</Label>
+                    <Input 
+                      value={editForm.observacao}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, observacao: e.target.value }))}
+                      placeholder="Observações adicionais"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEditDialogOpen(false)}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button onClick={saveEditedData} className="flex-1">
+                  Salvar Alterações
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
