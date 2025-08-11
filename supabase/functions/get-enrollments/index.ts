@@ -23,10 +23,7 @@ serve(async (req) => {
     const GOOGLE_PRIVATE_KEY = Deno.env.get('GOOGLE_PRIVATE_KEY')?.replace(/\\n/g, '\n')
 
     // Se as credenciais não estiverem configuradas, retornar array vazio
-    if (!GOOGLE_SERVICE_ACCOUNT_EMAIL || !GOOGLE_PRIVATE_KEY || 
-        GOOGLE_SERVICE_ACCOUNT_EMAIL.includes('desenvolvimento') || 
-        GOOGLE_PRIVATE_KEY.includes('desenvolvimento')) {
-      
+    if (!GOOGLE_SERVICE_ACCOUNT_EMAIL || !GOOGLE_PRIVATE_KEY) {
       console.log('⚠️ Credenciais do Google não configuradas - retornando array vazio')
       
       return new Response(
@@ -142,22 +139,18 @@ serve(async (req) => {
     const dataRows = rows.slice(1)
 
     // Converter dados para formato esperado
-    // Estrutura correta da aba matriculas (conforme finalize-enrollment):
-    // [Data Efetivação, Número Matrícula, CPF, Nome, Ciclo, Subnúcleo, Data Evento, Status, Observação, Email, Telefone]
+    // Estrutura correta da aba matriculas: nome, cpf, núcleo, subnucleo, ciclo, data, status, observacao
     const enrollments = dataRows
       .map((row, index) => ({
         id: (index + 1).toString(),
-        dataEfetivacao: row[0] || '',
-        numeroMatricula: row[1] || '',
-        cpf: row[2] || '',
-        nome: row[3] || '',
-        ciclo: row[4] || '',
-        subnucleo: row[5] || '',
-        dataEvento: row[6] || '',
-        status: row[7] || '',
-        observacao: row[8] || '',
-        email: row[9] || '',
-        telefone: row[10] || ''
+        nome: row[0] || '', // A - nome
+        cpf: row[1] || '', // B - cpf
+        nucleo: row[2] || '', // C - núcleo
+        subnucleo: row[3] || '', // D - subnucleo
+        ciclo: row[4] || '', // E - ciclo
+        data: row[5] || '', // F - data
+        status: row[6] || '', // G - status
+        observacao: row[7] || '' // H - observacao
       }))
       .filter(enrollment => enrollment.nome && enrollment.status)
 

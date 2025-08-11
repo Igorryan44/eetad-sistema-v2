@@ -11,8 +11,10 @@ import { toast } from '@/hooks/use-toast';
 import { Calendar, FileText, Download, Eye, Users, BookOpen, GraduationCap, AlertCircle, Loader2, LogOut, Shield } from 'lucide-react';
 import AuthenticationSystem from '../components/AuthenticationSystem';
 import UserManagement from '../components/UserManagement';
+import PendingStudentsManager from '../components/PendingStudentsManager';
 import { authService } from '../services/authService';
 import { supabase } from '@/integrations/supabase/client';
+import { usePendingStudents } from '@/services/pendingStudentsService';
 
 type Student = {
   id: string;
@@ -27,13 +29,14 @@ type Student = {
 
 type Enrollment = {
   id: string;
-  studentId: string;
-  ciclo: string;
+  nome: string;
+  cpf: string;
+  nucleo?: string;
   subnucleo?: string;
-  dataEvento: string;
+  ciclo: string;
+  data: string;
   status: string;
   observacao: string;
-  nome?: string;
 };
 
 type ReportData = {
@@ -48,7 +51,13 @@ const SecretaryDashboard = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(authService.getCurrentUser());
 
-  const [pendingStudents, setPendingStudents] = useState<Student[]>([]);
+  // Usar o novo serviço de alunos pendentes
+  const { students: pendingStudents, loading: pendingLoading, error: pendingError } = usePendingStudents();
+  
+  console.log('🎯 Dashboard - pendingStudents:', pendingStudents);
+  console.log('🎯 Dashboard - pendingLoading:', pendingLoading);
+  console.log('🎯 Dashboard - pendingError:', pendingError);
+  
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [stats, setStats] = useState({ 
@@ -61,7 +70,7 @@ const SecretaryDashboard = () => {
     reprovados: 0
   });
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [formData, setFormData] = useState({ ciclo: '', dataEvento: '', status: '', observacao: '' });
+  const [formData, setFormData] = useState({ ciclo: '', data: '', status: '', observacao: '' });
   
   // Estados para relatórios
   const [reportType, setReportType] = useState<string>('');
@@ -118,7 +127,6 @@ const SecretaryDashboard = () => {
     setCurrentUser(authService.getCurrentUser());
 
     if (authenticated) {
-      fetchPendingStudents();
       fetchEnrollments();
       fetchAllStudents();
     }
@@ -129,39 +137,14 @@ const SecretaryDashboard = () => {
     fetchStats();
   }, [pendingStudents, enrollments]);
 
-  const fetchPendingStudents = async () => {
-    try {
-      console.log('🔍 Buscando alunos pendentes...');
-      const response = await supabase.functions.invoke('get-pending-enrollments');
-      console.log('📊 Resposta da função get-pending-enrollments:', response);
-      
-      if (response.error) {
-        console.error('❌ Erro ao buscar alunos pendentes:', response.error);
-        throw response.error;
-      }
-      
-      // A função retorna um objeto com a propriedade pendingEnrollments
-       const students = response.data?.pendingEnrollments || [];
-       console.log('👥 Alunos pendentes recebidos:', students);
-       console.log('📈 Quantidade de alunos pendentes:', students.length);
-       
-       setPendingStudents(students);
-       console.log('✅ Estado de pendingStudents atualizado');
-    } catch (error) {
-      console.error('❌ Erro ao buscar alunos pendentes:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar alunos pendentes",
-        variant: "destructive",
-      });
-      setPendingStudents([]);
-    }
-  };
-
   const fetchEnrollments = async () => {
     try {
       console.log('🔍 Buscando matrículas...');
-      const response = await supabase.functions.invoke('get-enrollments');
+      const response = await supabase.functions.invoke('get-enrollments', {
+        headers: {
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
+        }
+      });
       console.log('📊 Resposta da função get-enrollments:', response);
       
       if (response.error) {
@@ -196,9 +179,9 @@ const SecretaryDashboard = () => {
         const allStudents: Student[] = [
           ...(Array.isArray(pendingStudents) ? pendingStudents : []),
           ...enrollments.map(e => ({
-            id: e.studentId,
+            id: e.id,
             nome: e.nome || 'Nome não informado',
-            cpf: '',
+            cpf: e.cpf || '',
             email: '',
             telefone: '',
             ciclo: e.ciclo
@@ -249,7 +232,6 @@ const SecretaryDashboard = () => {
     setCurrentUser(authService.getCurrentUser());
     
     // Carregar dados após autenticação
-    fetchPendingStudents();
     fetchEnrollments();
     fetchAllStudents();
     fetchStats();
@@ -261,7 +243,6 @@ const SecretaryDashboard = () => {
     setCurrentUser(null);
     
     // Limpar dados sensíveis
-    setPendingStudents([]);
     setEnrollments([]);
     setAllStudents([]);
     setStats({ 
@@ -310,11 +291,14 @@ const SecretaryDashboard = () => {
       
       // Chamar função do Supabase para efetivar matrícula
       const response = await supabase.functions.invoke('finalize-enrollment', {
+        headers: {
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
+        },
         body: {
           cpf: selectedStudentForEnrollment.cpf,
           ciclo: enrollmentForm.ciclo,
           subnucleo: enrollmentForm.subnucleo,
-          dataEvento: new Date().toLocaleDateString('pt-BR'),
+          data: new Date().toLocaleDateString('pt-BR'),
           status: enrollmentForm.status,
           observacao: enrollmentForm.observacoes,
           rowIndex: selectedStudentForEnrollment.rowIndex
@@ -330,7 +314,6 @@ const SecretaryDashboard = () => {
 
       // Atualizar listas locais
       await fetchEnrollments();
-      await fetchPendingStudents();
 
       // Fechar diálogo
       setIsEnrollmentDialogOpen(false);
@@ -462,7 +445,6 @@ const SecretaryDashboard = () => {
   const handleUpdateData = async (studentId: string, field: string, value: string) => {
     // TODO: Chamar função Supabase para atualizar dados pessoais
     toast({ title: 'Dados atualizados' });
-    fetchPendingStudents();
     fetchEnrollments();
   };
 
@@ -586,7 +568,7 @@ const SecretaryDashboard = () => {
 
   const generateDateReport = async (): Promise<string | null> => {
     const filteredEnrollments = enrollments.filter(enrollment => {
-      const enrollmentDate = new Date(enrollment.dataEvento);
+      const enrollmentDate = new Date(enrollment.data);
       const start = new Date(dateRange.startDate);
       const end = new Date(dateRange.endDate);
       return enrollmentDate >= start && enrollmentDate <= end;
@@ -615,7 +597,7 @@ const SecretaryDashboard = () => {
               <td style="padding: 10px;">${enrollment.ciclo}</td>
               <td style="padding: 10px;">${enrollment.subnucleo || 'Não informado'}</td>
               <td style="padding: 10px;">${enrollment.status}</td>
-              <td style="padding: 10px;">${enrollment.dataEvento}</td>
+              <td style="padding: 10px;">${enrollment.data}</td>
             </tr>
           `).join('')}
         </table>
@@ -652,10 +634,10 @@ const SecretaryDashboard = () => {
           ${filteredEnrollments.map(enrollment => `
             <tr>
               <td style="padding: 10px;">${enrollment.nome || 'N/A'}</td>
-              <td style="padding: 10px;">${(Array.isArray(pendingStudents) ? pendingStudents : []).find(s => s.id === enrollment.studentId)?.cpf || 'N/A'}</td>
+              <td style="padding: 10px;">${enrollment.cpf || 'N/A'}</td>
               <td style="padding: 10px;">${enrollment.subnucleo || 'Não informado'}</td>
               <td style="padding: 10px;">${enrollment.status}</td>
-              <td style="padding: 10px;">${enrollment.dataEvento}</td>
+              <td style="padding: 10px;">${enrollment.data}</td>
             </tr>
           `).join('')}
         </table>
@@ -690,7 +672,7 @@ const SecretaryDashboard = () => {
               <td style="padding: 10px;">${enrollment.nome || 'N/A'}</td>
               <td style="padding: 10px;">${enrollment.ciclo}</td>
               <td style="padding: 10px;">${enrollment.subnucleo || 'Não informado'}</td>
-              <td style="padding: 10px;">${enrollment.dataEvento}</td>
+              <td style="padding: 10px;">${enrollment.data}</td>
             </tr>
           `).join('')}
         </table>
@@ -748,7 +730,7 @@ const SecretaryDashboard = () => {
                 <td style="padding: 10px;">${enrollment.nome || 'N/A'}</td>
                 <td style="padding: 10px;">${enrollment.ciclo}</td>
                 <td style="padding: 10px;">${enrollment.subnucleo || 'Não informado'}</td>
-                <td style="padding: 10px;">${enrollment.dataEvento}</td>
+                <td style="padding: 10px;">${enrollment.data}</td>
               </tr>
             `).join('')}
           </table>
@@ -988,35 +970,18 @@ const SecretaryDashboard = () => {
           </div>
         </TabsContent>
         <TabsContent value="pending">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>CPF</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(() => {
-                const pendingArray = Array.isArray(pendingStudents) ? pendingStudents : [];
-                console.log('📋 Renderizando tabela de alunos pendentes:', pendingArray);
-                console.log('📊 Quantidade na tabela:', pendingArray.length);
-                
-                return pendingArray.map((student) => {
-                  console.log('👤 Renderizando linha da tabela para:', student);
-                  return (
-                    <TableRow key={student.id}>
-                      <TableCell>{student.nome}</TableCell>
-                      <TableCell>{student.cpf}</TableCell>
-                      <TableCell>
-                        <Button onClick={() => openEnrollmentForm(student)}>Efetivar Matrícula</Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                });
-              })()}
-            </TableBody>
-          </Table>
+          <PendingStudentsManager 
+            onStudentEnrolled={(student) => {
+              // Atualizar dados após efetivação
+              fetchEnrollments();
+              fetchStats();
+              
+              toast({
+                title: "✅ Matrícula Efetivada",
+                description: `${student.nome} foi matriculado com sucesso!`,
+              });
+            }}
+          />
         </TabsContent>
         <TabsContent value="enrollments">
           <Table>

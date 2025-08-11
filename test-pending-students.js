@@ -1,52 +1,98 @@
-// Script para testar a busca de alunos pendentes
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://umkizxftwrwqiiahjbrr.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs';
+// Configuração do Supabase
+const SUPABASE_URL = 'https://umkizxftwrwqiiahjbrr.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs';
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-async function testPendingStudents() {
-  console.log('🔍 Testando busca de alunos pendentes...\n');
+async function testPendingStudentsFlow() {
+  console.log('🧪 Testando fluxo completo de alunos pendentes...');
+  console.log('📋 Nova funcionalidade: Coluna Status na aba "dados pessoais"');
+  console.log('🔄 Fluxo: Pendente → Buscar → Efetivar → Matriculado');
   
   try {
-    console.log('📡 Chamando função get-pending-enrollments...');
-    const response = await supabase.functions.invoke('get-pending-enrollments');
-    
-    console.log('📊 Resposta completa:', JSON.stringify(response, null, 2));
-    
-    if (response.error) {
-      console.error('❌ Erro na função:', response.error);
+    // 1. Testar busca de alunos pendentes
+    console.log('\n1️⃣ Testando função get-pending-students...');
+    const { data: pendingData, error: pendingError } = await supabase.functions.invoke('get-pending-students', {
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (pendingError) {
+      console.error('❌ Erro ao buscar alunos pendentes:', pendingError);
       return;
     }
+
+    console.log('✅ Resposta da busca:', pendingData);
+    console.log(`📊 Total de alunos com status "Pendente": ${pendingData?.students?.length || 0}`);
     
-    const students = response.data;
-    console.log('\n👥 Dados dos alunos pendentes:');
-    console.log('📈 Quantidade:', Array.isArray(students) ? students.length : 'Não é array');
-    console.log('📋 Tipo dos dados:', typeof students);
-    console.log('🔍 É array?', Array.isArray(students));
-    
-    if (Array.isArray(students)) {
-      console.log('\n📝 Lista de alunos:');
-      students.forEach((student, index) => {
-        console.log(`${index + 1}. ${student.nome} - CPF: ${student.cpf} - Email: ${student.email}`);
-        console.log(`   ID: ${student.id}`);
-        console.log(`   Dados completos:`, student);
-        console.log('');
+    if (pendingData?.students?.length > 0) {
+      console.log('\n📋 Detalhes dos alunos pendentes:');
+      pendingData.students.forEach((student, index) => {
+        console.log(`${index + 1}. ${student.nome} (CPF: ${student.cpf}) - Status: ${student.status || 'N/A'}`);
       });
+
+      // 2. Testar efetivação de matrícula
+      console.log('\n2️⃣ Testando efetivação de matrícula...');
+      const firstStudent = pendingData.students[0];
       
-      if (students.length === 0) {
-        console.log('⚠️  Nenhum aluno pendente encontrado!');
-        console.log('💡 Verifique se há dados na aba "usuarios" da planilha');
+      const enrollmentData = {
+        cpf: firstStudent.cpf,
+        ciclo: 'Ciclo Básico',
+        subnucleo: 'Subnúcleo Central',
+        status: 'Ativo',
+        observacao: 'Matrícula efetivada via teste automático',
+        dataEvento: new Date().toLocaleDateString('pt-BR')
+      };
+
+      console.log('📝 Dados para efetivação:', enrollmentData);
+
+      const { data: enrollmentResult, error: enrollmentError } = await supabase.functions.invoke('finalize-student-enrollment', {
+        body: enrollmentData,
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (enrollmentError) {
+        console.error('❌ Erro ao efetivar matrícula:', enrollmentError);
+      } else {
+        console.log('✅ Matrícula efetivada com sucesso!');
+        console.log('📄 Resultado:', enrollmentResult);
+        
+        // 3. Verificar se o status foi atualizado
+        console.log('\n3️⃣ Verificando atualização do status...');
+        const { data: updatedData, error: updateError } = await supabase.functions.invoke('get-pending-students', {
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!updateError) {
+          const remainingPending = updatedData?.students?.length || 0;
+          console.log(`📊 Alunos pendentes restantes: ${remainingPending}`);
+          
+          if (remainingPending < pendingData.students.length) {
+            console.log('✅ Status atualizado corretamente! Aluno removido da lista de pendentes.');
+          } else {
+            console.log('⚠️ Status pode não ter sido atualizado. Verificar manualmente.');
+          }
+        }
       }
     } else {
-      console.log('❌ Os dados retornados não são um array:', students);
+      console.log('ℹ️ Nenhum aluno com status "Pendente" encontrado.');
+      console.log('💡 Para testar, adicione um aluno na aba "dados pessoais" com Status = "Pendente"');
     }
-    
+
   } catch (error) {
-    console.error('💥 Erro ao testar:', error);
+    console.error('❌ Erro geral no teste:', error);
   }
 }
 
-// Executar o teste
-testPendingStudents();
+// Executar teste
+testPendingStudentsFlow();

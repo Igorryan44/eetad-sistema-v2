@@ -10,7 +10,7 @@ interface EnrollmentData {
   cpf: string;
   ciclo: string;
   subnucleo: string;
-  dataEvento: string;
+  data: string;
   status: string;
   observacao: string;
 }
@@ -143,21 +143,18 @@ serve(async (req) => {
     const studentRow = studentData.values?.[0] || []
 
     // 3. Adicionar registro na aba "matriculas"
-    const currentDate = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
-    const matriculaNumber = `EETAD${Date.now()}`
+    // Estrutura correta das colunas: nome, cpf, núcleo, subnucleo, ciclo, data, status, observacao
+    const currentDate = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
     
     const matriculaRowData = [
-      currentDate, // Data de efetivação
-      matriculaNumber, // Número da matrícula
-      enrollmentData.cpf, // CPF
-      studentRow[1] || '', // Nome
-      enrollmentData.ciclo, // Ciclo
-      enrollmentData.subnucleo, // Subnúcleo
-      enrollmentData.dataEvento, // Data do evento
-      enrollmentData.status, // Status
-      enrollmentData.observacao || '', // Observação
-      studentRow[5] || '', // Email
-      studentRow[4] || '' // Telefone
+      studentRow[1] || '', // A - nome
+      enrollmentData.cpf, // B - cpf
+      studentRow[2] || '', // C - núcleo (buscar da aba dados pessoais)
+      enrollmentData.subnucleo, // D - subnucleo
+      enrollmentData.ciclo, // E - ciclo
+      currentDate, // F - data
+      enrollmentData.status, // G - status
+      enrollmentData.observacao || '' // H - observacao
     ]
 
     const addMatriculaResponse = await fetch(
@@ -183,8 +180,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Matrícula efetivada com sucesso',
-        matriculaNumber: matriculaNumber
+        message: 'Matrícula efetivada com sucesso'
       }),
       { 
         headers: { 
