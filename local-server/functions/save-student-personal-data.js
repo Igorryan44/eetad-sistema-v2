@@ -1,6 +1,7 @@
 import express from 'express';
 import { corsMiddleware } from '../utils/cors.js';
-import { appendSheetData } from '../utils/google-auth.js';
+import { appendSheetData, writeSheetData, readSheetDataWithRetry } from '../utils/google-auth.js';
+import fetch from 'node-fetch';
 
 const router = express.Router();
 router.use(corsMiddleware);
@@ -20,36 +21,83 @@ router.post('/', async (req, res) => {
     // Preparar dados para inserção
     const currentTimestamp = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
     
+    // Gerar QR Code PIX estático para o aluno
+    let qrCodePix = '';
+    try {
+      if (studentData.nome && studentData.cpf) {
+        const pixResponse = await fetch('http://localhost:3003/functions/generate-static-pix', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            nome: studentData.nome,
+            cpf: studentData.cpf,
+            valor: 45.00 // Valor padrão dos livros
+          })
+        });
+        
+        if (pixResponse.ok) {
+          const pixData = await pixResponse.json();
+          qrCodePix = pixData.qr_code_base64 || '';
+          console.log(`✅ QR Code PIX gerado para ${studentData.nome}`);
+        } else {
+          console.log(`⚠️ Erro ao gerar QR Code PIX para ${studentData.nome}`);
+        }
+      }
+    } catch (error) {
+      console.log(`⚠️ Erro ao gerar QR Code PIX: ${error.message}`);
+    }
+
     const rowData = [
-      currentTimestamp,
-      studentData.nome || '',
-      studentData.nucleo || '',
-      studentData.cpf || '',
-      studentData.rg || '',
-      studentData.nascimento || '',
-      studentData.telefone || '',
-      studentData.email || '',
-      studentData.endereco || '',
-      studentData.numero || '',
-      studentData.complemento || '',
-      studentData.bairro || '',
-      studentData.cidade || '',
-      studentData.cep || '',
-      studentData.estado || '',
-      studentData.profissao || '',
-      studentData.escolaridade || '',
-      studentData.estadoCivil || '',
-      studentData.nomeConjuge || '',
-      studentData.telefoneConjuge || '',
-      studentData.nomeFilho1 || '',
-      studentData.idadeFilho1 || '',
-      studentData.nomeFilho2 || '',
-      studentData.idadeFilho2 || '',
-      'Pendente' // Status inicial
+      studentData.origem_academica || '', // A
+      studentData.escola_anterior || '', // B
+      studentData.modalidade_anterior || '', // C
+      studentData.congregacao || '', // D
+      studentData.nome || '', // E
+      studentData.rg || '', // F
+      studentData.cpf || '', // G
+      studentData.telefone || '', // H
+      studentData.email || '', // I
+      studentData.sexo || '', // J
+      studentData.estado_civil || '', // K
+      studentData.data_nascimento || '', // L
+      studentData.uf_nascimento || '', // M
+      studentData.escolaridade || '', // N
+      studentData.profissao || '', // O
+      studentData.nacionalidade || '', // P
+      studentData.cargo_igreja || '', // Q
+      studentData.endereco_rua || '', // R
+      studentData.cep || '', // S
+      studentData.numero || '', // T
+      studentData.bairro || '', // U
+      studentData.cidade || '', // V
+      studentData.uf || '', // W
+      currentTimestamp, // X - data_cadastro
+      'Pendente', // Y - Status inicial
+      qrCodePix // Z - QR Code PIX estático
     ];
 
-    const range = `${DADOS_PESSOAIS_SHEET}!A:Y`;
-    await appendSheetData(GOOGLE_SHEETS_SPREADSHEET_ID, range, [rowData]);
+    // Descobrir a próxima linha vazia usando lógica mais precisa
+    const currentData = await readSheetDataWithRetry(GOOGLE_SHEETS_SPREADSHEET_ID, `${DADOS_PESSOAIS_SHEET}!A:Z`);
+    
+    // Contar apenas linhas com dados válidos (nome OU cpf preenchidos)
+    let validDataRows = 0;
+    for (let i = 1; i < currentData.length; i++) { // Começar da linha 2 (índice 1)
+      const row = currentData[i];
+      const hasName = row[4] && row[4].trim() !== ''; // Coluna E - nome
+      const hasCpf = row[6] && row[6].trim() !== '';   // Coluna G - cpf
+      if (hasName || hasCpf) {
+        validDataRows++;
+      }
+    }
+    
+    // A próxima linha disponível é: validDataRows + 2 (linha 1 é cabeçalho, então linha 2 é a primeira de dados)
+    const nextRow = Math.min(validDataRows + 2, 1013);
+    const specificRange = `${DADOS_PESSOAIS_SHEET}!A${nextRow}:Z${nextRow}`;
+    
+    console.log(`📍 Salvando na linha ${nextRow} com range: ${specificRange}`);
+    await writeSheetData(GOOGLE_SHEETS_SPREADSHEET_ID, specificRange, [rowData]);
 
     console.log('✅ Dados pessoais salvos com sucesso');
 

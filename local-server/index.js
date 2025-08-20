@@ -19,11 +19,58 @@ import manageSecretaryUsers from './functions/manage-secretary-users.js';
 import aiChatbot from './functions/ai-chatbot.js';
 import cancelOrder from './functions/cancel-order.js';
 import sendEmailNotification from './functions/send-email-notification.js';
+import getBookOrdersByCpfBookObservacao from './functions/get-book-orders-by-cpf-book-observacao.js';
+import sendWhatsappNotification from './functions/send-whatsapp-notification.js';
+import getStudentPersonalData from './functions/get-student-personal-data.js';
+import getStudentBooks from './functions/get-student-books.js';
+import getStudentEnrollmentData from './functions/get-student-enrollment-data.js';
+import updateStudentData from './functions/update-student-data.js';
+import debugSheetData from './functions/debug-sheet-data.js';
+import saveBookOrder from './functions/save-book-order.js';
+import testEnrollments from './functions/test-enrollments.js';
+import getMatriculatedStudents from './functions/get-matriculated-students.js';
+import getCursandoStudents from './functions/get-cursando-students.js';
+import getAprovadoStudents from './functions/get-aprovado-students.js';
+import getReprovadoStudents from './functions/get-reprovado-students.js';
+import getRecuperacaoStudents from './functions/get-recuperacao-students.js';
+import getPendenteStudents from './functions/get-pendente-students.js';
+import clearCache from './functions/clear-cache.js';
+import debugSaveData from './functions/debug-save-data.js';
+import testSaveComplete from './functions/test-save-complete.js';
+import debugColumnMapping from './functions/debug-column-mapping.js';
+import testSpecificSave from './functions/test-specific-save.js';
+import testDirectWrite from './functions/test-direct-write.js';
+import checkRealData from './functions/check-real-data.js';
+import countRealRows from './functions/count-real-rows.js';
+import generateStaticPix from './functions/generate-static-pix.js';
+import getStudentPixQrcode from './functions/get-student-pix-qrcode.js';
+import confirmPixPayment from './functions/confirm-pix-payment.js';
+import testPixFlow from './functions/test-pix-flow.js';
+import generateAndSaveStudentPix from './functions/generate-and-save-student-pix.js';
+import generatePixForStudent from './functions/generate-pix-for-student.js';
+import generateQrCodeForManualSave from './functions/generate-qr-code-for-manual-save.js';
+import generatePixWithTracking from './functions/generate-pix-with-tracking.js';
+import confirmPixByTracking from './functions/confirm-pix-by-tracking.js';
+import generateStaticPixWithId from './functions/generate-static-pix-with-id.js';
+import confirmPixById from './functions/confirm-pix-by-id.js';
+import generateMonthlyPix from './functions/generate-monthly-pix.js';
+import confirmMonthlyPix from './functions/confirm-monthly-pix.js';
+import testMonthlyPixFlow from './functions/test-monthly-pix-flow.js';
+import regeneratePixQrcode from './functions/regenerate-pix-qrcode.js';
+import { testGoogleCredentials } from './functions/test-google-credentials.js';
+import debugGoogleAuth from './functions/debug-google-auth.js';
+import autoCheckPayments from './functions/auto-check-payments.js';
+import createTrackingSheet from './functions/create-tracking-sheet.js';
+import listSheetTabs from './functions/list-sheet-tabs.js';
+import checkPedidosHeaders from './functions/check-pedidos-headers.js';
+import checkPagamentosHeaders from './functions/check-pagamentos-headers.js';
+import createPagamentosHeaders from './functions/create-pagamentos-headers.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Carregar variáveis de ambiente
+dotenv.config({ path: path.join(__dirname, '.env') });
 dotenv.config({ path: path.join(__dirname, '..', '.env.local') });
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
@@ -33,11 +80,11 @@ const PORT = process.env.LOCAL_SERVER_PORT || 3003;
 // Middleware de segurança
 app.use(helmet());
 
-// Rate limiting
+// Rate limiting - configuração mais permissiva para desenvolvimento
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // máximo 100 requests por IP por janela
-  message: 'Muitas requisições deste IP, tente novamente em 15 minutos.'
+  windowMs: 1 * 60 * 1000, // 1 minuto
+  max: 1000, // máximo 1000 requests por IP por janela
+  message: 'Muitas requisições deste IP, tente novamente em 1 minuto.'
 });
 app.use(limiter);
 
@@ -45,8 +92,12 @@ app.use(limiter);
 app.use(cors({
   origin: [
     'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
     'http://localhost:5173',
     'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
+    'http://127.0.0.1:3002',
     'http://127.0.0.1:5173',
     'https://eetad-sistema-v2.vercel.app'
   ],
@@ -291,6 +342,52 @@ app.use('/functions/manage-secretary-users', manageSecretaryUsers);
 app.use('/functions/ai-chatbot', aiChatbot);
 app.use('/functions/cancel-order', cancelOrder);
 app.use('/functions/send-email-notification', sendEmailNotification);
+app.use('/functions/get-book-orders-by-cpf-book-observacao', getBookOrdersByCpfBookObservacao);
+app.use('/functions/send-whatsapp-notification', sendWhatsappNotification);
+app.use('/functions/get-student-personal-data', getStudentPersonalData);
+app.use('/functions/get-student-books', getStudentBooks);
+app.use('/functions/get-student-enrollment-data', getStudentEnrollmentData);
+app.use('/functions/update-student-data', updateStudentData);
+app.use('/functions/debug-sheet-data', debugSheetData);
+app.use('/functions/save-book-order', saveBookOrder);
+app.use('/functions/test-enrollments', testEnrollments);
+app.use('/functions/get-matriculated-students', getMatriculatedStudents);
+app.use('/functions/get-cursando-students', getCursandoStudents);
+app.use('/functions/get-aprovado-students', getAprovadoStudents);
+app.use('/functions/generate-static-pix', generateStaticPix);
+app.use('/functions/get-student-pix-qrcode', getStudentPixQrcode);
+app.use('/functions/confirm-pix-payment', confirmPixPayment);
+app.use('/functions/test-pix-flow', testPixFlow);
+app.use('/functions/generate-and-save-student-pix', generateAndSaveStudentPix);
+app.use('/functions/generate-pix-for-student', generatePixForStudent);
+app.use('/functions/generate-qr-code-for-manual-save', generateQrCodeForManualSave);
+app.use('/functions/generate-pix-with-tracking', generatePixWithTracking);
+app.use('/functions/confirm-pix-by-tracking', confirmPixByTracking);
+app.use('/functions/generate-static-pix-with-id', generateStaticPixWithId);
+app.use('/functions/confirm-pix-by-id', confirmPixById);
+app.use('/functions/get-reprovado-students', getReprovadoStudents);
+app.use('/functions/get-recuperacao-students', getRecuperacaoStudents);
+app.use('/functions/get-pendente-students', getPendenteStudents);
+app.use('/functions/clear-cache', clearCache);
+app.use('/functions/debug-save-data', debugSaveData);
+app.use('/functions/test-save-complete', testSaveComplete);
+app.use('/functions/debug-column-mapping', debugColumnMapping);
+app.use('/functions/test-specific-save', testSpecificSave);
+app.use('/functions/test-direct-write', testDirectWrite);
+app.use('/functions/check-real-data', checkRealData);
+app.use('/functions/count-real-rows', countRealRows);
+app.use('/functions/generate-monthly-pix', generateMonthlyPix);
+app.use('/functions/confirm-monthly-pix', confirmMonthlyPix);
+app.use('/functions/test-monthly-pix-flow', testMonthlyPixFlow);
+app.use('/functions/regenerate-pix-qrcode', regeneratePixQrcode);
+app.post('/functions/test-google-credentials', testGoogleCredentials);
+app.post('/functions/debug-google-auth', debugGoogleAuth);
+app.use('/functions/auto-check-payments', autoCheckPayments);
+app.use('/functions/create-tracking-sheet', createTrackingSheet);
+app.use('/functions/list-sheet-tabs', listSheetTabs);
+app.use('/functions/check-pedidos-headers', checkPedidosHeaders);
+app.use('/functions/check-pagamentos-headers', checkPagamentosHeaders);
+app.use('/functions/create-pagamentos-headers', createPagamentosHeaders);
 
 // Middleware de tratamento de erros
 app.use((err, req, res, next) => {

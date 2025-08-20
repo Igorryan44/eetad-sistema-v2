@@ -39,10 +39,10 @@ const Footer: React.FC = () => {
             </div>
           </div>
 
-          {/* Sub-núcleos - Coluna Direita */}
+          {/* Subnúcleos - Coluna Direita */}
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-semibold mb-4 text-blue-400">Sub-núcleos</h3>
+              <h3 className="text-lg font-semibold mb-4 text-blue-400">Subnúcleos</h3>
               <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                 <div className="text-gray-300">
                   <p>1 - ARNO 44</p>

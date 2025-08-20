@@ -25,40 +25,31 @@ interface CreateAccountData {
 
 class AuthService {
   private readonly SESSION_KEY = 'eetad_secretary_session';
-  private readonly SUPABASE_URL = 'https://umkizxftwrwqiiahjbrr.supabase.co';
+  private readonly LOCAL_SERVER_URL = 'http://localhost:3003';
   private currentUser: SecretaryUser | null = null;
 
   constructor() {
-    console.log('🔧 AuthService: Inicializando...');
     this.loadSession();
     this.ensureDefaultUser();
-    console.log('✅ AuthService: Inicializado com sucesso');
   }
 
   // Garantir que o usuário padrão existe
   private ensureDefaultUser(): void {
-    console.log('🔄 AuthService: Verificando usuário padrão Admin...');
-    
     const STORAGE_KEY = 'secretary-users';
     try {
       const users = localStorage.getItem(STORAGE_KEY);
-      console.log('📦 AuthService: Dados brutos do localStorage:', users);
       
       const userList = users ? JSON.parse(users) : [];
-      console.log('📋 AuthService: Usuários existentes:', userList.length);
-      console.log('📋 AuthService: Lista de usuários:', userList);
       
       // Verificar se Admin já existe
       const adminExists = userList.find((u: any) => u.username === 'Admin');
-      console.log('👤 AuthService: Admin existe?', !!adminExists);
       
       // Se não há usuários ou Admin não existe, criar o usuário padrão
       if (userList.length === 0 || !adminExists) {
         const adminPassword = 'admin1';
         const adminHash = this.hashPassword(adminPassword);
         
-        console.log('🔐 AuthService: Criando Admin com senha:', adminPassword);
-        console.log('🔐 AuthService: Hash gerado:', adminHash);
+
         
         const defaultUser = {
           id: '1',
@@ -80,29 +71,13 @@ class AuthService {
         }
         
         localStorage.setItem(STORAGE_KEY, JSON.stringify(userList));
-        console.log('✅ AuthService: Usuário Admin criado com sucesso!');
-        console.log('📝 AuthService: Credenciais - Admin/admin1');
-        console.log('🔐 AuthService: Hash salvo:', defaultUser.passwordHash);
-        
-        // Verificar se foi salvo corretamente
-        const verification = localStorage.getItem(STORAGE_KEY);
-        const verificationList = verification ? JSON.parse(verification) : [];
-        console.log('🔍 AuthService: Verificação pós-criação:', verificationList.length, 'usuários');
-        verificationList.forEach((user: any) => {
-          console.log(`   ✓ ${user.username} - Hash: ${user.passwordHash}`);
-        });
-      } else {
-        console.log('✅ AuthService: Usuários já existem');
-        userList.forEach((user: any) => {
-          console.log(`   - ${user.username} (${user.email}) - Hash: ${user.passwordHash}`);
-        });
       }
     } catch (error) {
       console.error('❌ AuthService: Erro ao verificar usuário padrão:', error);
     }
   }
 
-  // Sistema local usando localStorage (sem Supabase)
+  // Sistema local usando localStorage
   private handleLocalStorageOperation(data: any): any {
     const STORAGE_KEY = 'secretary-users';
     
@@ -117,15 +92,11 @@ class AuthService {
 
       case 'login':
         try {
-          console.log('🏠 AuthService: Tentando login local...');
           const users = localStorage.getItem(STORAGE_KEY);
           const userList = users ? JSON.parse(users) : [];
           
-          console.log('📋 AuthService: Usuários no localStorage:', userList.length);
-          
           // Se não há usuários, criar o usuário padrão
           if (userList.length === 0) {
-            console.log('⚠️ AuthService: Nenhum usuário encontrado, criando Admin...');
             const defaultUser = {
               id: '1',
               username: 'Admin',
@@ -136,29 +107,21 @@ class AuthService {
             };
             userList.push(defaultUser);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(userList));
-            console.log('✅ AuthService: Usuário Admin criado para login');
           }
 
-          console.log('🔍 AuthService: Procurando usuário:', data.username);
           const user = userList.find((u: any) => u.username === data.username);
           
           if (user) {
-            console.log('👤 AuthService: Usuário encontrado:', user.username);
             const inputPasswordHash = this.hashPassword(data.password);
-            console.log('🔐 AuthService: Hash da senha digitada:', inputPasswordHash);
-            console.log('🔐 AuthService: Hash armazenado:', user.passwordHash);
             
             if (user.passwordHash === inputPasswordHash) {
               user.lastLogin = new Date().toISOString();
               localStorage.setItem(STORAGE_KEY, JSON.stringify(userList));
-              console.log('✅ AuthService: Login local bem-sucedido!');
               return { success: true, user };
             } else {
-              console.log('❌ AuthService: Senha incorreta');
               return { success: false, error: 'Credenciais inválidas' };
             }
           } else {
-            console.log('❌ AuthService: Usuário não encontrado');
             return { success: false, error: 'Usuário não encontrado' };
           }
         } catch (error) {
@@ -203,10 +166,12 @@ class AuthService {
 
   // Carregar sessão ativa
   private loadSession(): void {
-    const session = localStorage.getItem(this.SESSION_KEY);
+    const session = localStorage.getItem('auth_session');
+    
     if (session) {
       try {
         const sessionData = JSON.parse(session);
+        
         if (sessionData.expiresAt > Date.now()) {
           this.currentUser = sessionData.user;
         } else {
@@ -243,11 +208,10 @@ class AuthService {
   // Obter todos os usuários
   async getUsers(): Promise<{ success: boolean; users?: any[]; message?: string }> {
     try {
-      const response = await fetch('https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/manage-secretary-users', {
+      const response = await fetch(`${this.LOCAL_SERVER_URL}/functions/manage-secretary-users`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ action: 'list' })
       });
@@ -256,12 +220,12 @@ class AuthService {
         const result = await response.json();
         return result;
       } else {
-        console.error('Erro ao listar usuários via Supabase:', response.statusText);
+        console.error('Erro ao listar usuários via servidor local:', response.statusText);
         // Fallback para localStorage
         return this.handleLocalStorageOperation({ action: 'list' });
       }
     } catch (error) {
-      console.error('Erro ao conectar com Supabase:', error);
+      console.error('Erro ao conectar com servidor local:', error);
       // Fallback para localStorage
       return this.handleLocalStorageOperation({ action: 'list' });
     }
@@ -283,11 +247,10 @@ class AuthService {
         throw new Error('Nome de usuário deve ter pelo menos 3 caracteres');
       }
 
-      const response = await fetch('https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/manage-secretary-users', {
+      const response = await fetch(`${this.LOCAL_SERVER_URL}/functions/manage-secretary-users`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ 
           action: 'create',
@@ -302,7 +265,7 @@ class AuthService {
         }
         return true;
       } else {
-        console.error('Erro ao criar conta via Supabase:', response.statusText);
+        console.error('Erro ao criar conta via servidor local:', response.statusText);
         // Fallback para localStorage
         const result = this.handleLocalStorageOperation({
           action: 'create',
@@ -324,14 +287,12 @@ class AuthService {
   // Fazer login
   async login(credentials: LoginCredentials): Promise<boolean> {
     try {
-      console.log('🔐 AuthService: Tentativa de login:', credentials.username);
-      console.log('📡 AuthService: Tentando Supabase primeiro...');
+
       
-      const response = await fetch('https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/manage-secretary-users', {
+      const response = await fetch(`${this.LOCAL_SERVER_URL}/functions/manage-secretary-users`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ 
           action: 'login',
@@ -342,7 +303,7 @@ class AuthService {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('📡 AuthService: Resposta do Supabase:', result);
+
         
         if (result.success && result.user) {
           // Criar sessão (válida por 8 horas)
@@ -353,12 +314,10 @@ class AuthService {
 
           localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
           this.currentUser = result.user;
-          console.log('🎉 AuthService: Login via Supabase realizado com sucesso!');
           return true;
         }
         
-        console.log('❌ AuthService: Login via Supabase falhou:', result.error);
-        console.log('🔄 AuthService: Tentando fallback para localStorage...');
+
         // Fallback para localStorage
         const localResult = this.handleLocalStorageOperation({
           action: 'login',
@@ -375,15 +334,13 @@ class AuthService {
 
           localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
           this.currentUser = localResult.user;
-          console.log('🎉 AuthService: Login via localStorage realizado com sucesso!');
           return true;
         }
         
-        console.log('❌ AuthService: Login via localStorage também falhou:', localResult.error);
+
         return false;
       } else {
-        console.error('❌ AuthService: Erro HTTP do Supabase:', response.status, response.statusText);
-        console.log('🔄 AuthService: Tentando fallback para localStorage...');
+        console.error('❌ AuthService: Erro HTTP do servidor local:', response.status, response.statusText);
         // Fallback para localStorage
         const localResult = this.handleLocalStorageOperation({
           action: 'login',
@@ -400,16 +357,14 @@ class AuthService {
 
           localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
           this.currentUser = localResult.user;
-          console.log('🎉 AuthService: Login via localStorage realizado com sucesso!');
           return true;
         }
         
-        console.log('❌ AuthService: Login via localStorage também falhou:', localResult.error);
+
         return false;
       }
     } catch (error) {
-      console.error('❌ AuthService: Erro de conexão com Supabase:', error);
-      console.log('🔄 AuthService: Tentando fallback para localStorage...');
+      console.error('❌ AuthService: Erro de conexão com servidor local:', error);
       // Fallback para localStorage
       const localResult = this.handleLocalStorageOperation({
         action: 'login',
@@ -426,11 +381,10 @@ class AuthService {
 
         localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
         this.currentUser = localResult.user;
-        console.log('🎉 AuthService: Login via localStorage realizado com sucesso!');
         return true;
       }
       
-      console.log('❌ AuthService: Login via localStorage também falhou:', localResult.error);
+
       return false;
     }
   }
@@ -463,7 +417,6 @@ class AuthService {
       }
 
       // Simular envio de email
-      console.log(`Email de recuperação enviado para: ${user.email}`);
       
       // Em uma implementação real, aqui seria enviado um email
       // com um token de recuperação de senha
@@ -517,7 +470,7 @@ class AuthService {
   async getStats(): Promise<{ totalUsers: number; activeUsers: number; recentUsers: number }> {
     try {
       const result = await this.getUsers();
-      const users = result.success ? result.users : [];
+      const users = (result.success && result.users) ? result.users : [];
       return {
         totalUsers: users.length,
         activeUsers: users.filter(u => u.lastLogin).length,

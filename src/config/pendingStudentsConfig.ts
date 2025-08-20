@@ -3,8 +3,8 @@
  */
 export const PENDING_STUDENTS_CONFIG = {
   // Cache settings
-  CACHE_DURATION: 5 * 60 * 1000, // 5 minutos
-  BACKGROUND_SYNC_INTERVAL: 2 * 60 * 1000, // 2 minutos
+  CACHE_DURATION: 10 * 1000, // 10 segundos (debug)
+  BACKGROUND_SYNC_INTERVAL: 5 * 1000, // 5 segundos (debug)
   
   // Retry settings
   MAX_RETRIES: 3,
@@ -14,8 +14,8 @@ export const PENDING_STUDENTS_CONFIG = {
   DEBOUNCE_DELAY: 300, // 300ms
   
   // API settings
-  SUPABASE_FUNCTION_NAME: 'get-pending-enrollments',
-  SUPABASE_AUTH_TOKEN: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs',
+  LOCAL_FUNCTION_NAME: 'get-pendente-students',
+  LOCAL_SERVER_URL: 'http://localhost:3003',
   
   // Error messages
   ERROR_MESSAGES: {

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageCircle, Send, Bot, User } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+
 import { useToast } from "@/components/ui/use-toast";
 
 interface Message {
@@ -29,22 +29,28 @@ const ChatbotDemo = () => {
   // Gerar resposta usando IA
   const generateAIResponse = async (userMessage: string): Promise<string> => {
     try {
-      console.log('[ChatbotDemo] Enviando mensagem para IA:', userMessage);
+  
       
-      const response = await supabase.functions.invoke('ai-chatbot', {
-        body: {
+      // Usar servidor local
+      const response = await fetch('http://localhost:3003/functions/ai-chatbot', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
           message: userMessage,
           conversationHistory: messages.slice(-10) // Últimas 10 mensagens para contexto
-        }
+        })
       });
 
-      if (response.error) {
-        console.error('[ChatbotDemo] Erro na função IA:', response.error);
-        throw new Error(response.error.message);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
+        console.error('[ChatbotDemo] Erro na função IA:', errorData);
+        throw new Error(errorData.message || response.statusText);
       }
 
-      const { data } = response;
-      console.log('[ChatbotDemo] Resposta da IA:', data);
+      const data = await response.json();
+
       
       return data.response || 'Desculpe, não consegui processar sua mensagem. Tente novamente.';
     } catch (error) {

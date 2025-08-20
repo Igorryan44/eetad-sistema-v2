@@ -3,25 +3,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "@/hooks/use-toast";
 import { BookOrder } from "@/pages/Index";
 import { 
-  ArrowLeft, 
   CheckCircle, 
-  Copy, 
-  CreditCard, 
-  QrCode, 
-  X, 
   Book, 
   Info, 
   User, 
   FileText, 
   DollarSign,
   Loader2,
-  Shield,
-  Clock,
+  Hash,
+  ArrowLeft,
+  QrCode,
   Smartphone,
-  Zap
+  RefreshCw,
+  X,
+  Copy,
+  Clock
 } from "lucide-react";
 
 interface CheckoutPageProps {
@@ -30,231 +30,185 @@ interface CheckoutPageProps {
 }
 
 const CheckoutPage = ({ bookOrder, onBack }: CheckoutPageProps) => {
-  const [pixKey, setPixKey] = useState("");
-  const [qrCodeData, setQrCodeData] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'confirmed'>('pending');
+  // Verificação de segurança para bookOrder
+  if (!bookOrder || !bookOrder.studentName || !bookOrder.cpf || !bookOrder.bookName) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Erro: Dados do pedido não encontrados</h2>
+          <p className="text-gray-600 mb-4">Por favor, volte e tente novamente.</p>
+          <Button onClick={onBack} className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Voltar
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const [pixKey, setPixKey] = useState<string>("");
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'approved' | 'rejected' | 'cancelled'>('pending');
   const [isGeneratingPix, setIsGeneratingPix] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
-  const [paymentId, setPaymentId] = useState("");
+  const [pixGenerated, setPixGenerated] = useState(false);
+  const [paymentId, setPaymentId] = useState<string>("");
+  const [identificadorUnico, setIdentificadorUnico] = useState<string>("");
+
+  const [pixError, setPixError] = useState<string>("");
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [progressValue, setProgressValue] = useState(25);
+  const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
 
   const generateRealPix = async () => {
+    if (pixGenerated) return;
+    
     setIsGeneratingPix(true);
+    setPixError("");
     
     try {
-      const paymentData = {
-        nome: bookOrder.studentName,
-        cpf: bookOrder.cpf,
-        email: bookOrder.email || "aluno@eetad.com.br",
-        valor: bookOrder.price,
-        livro: bookOrder.bookName,
-        ciclo: bookOrder.cycle || "1º Ciclo Básico"
-      };
-
-      console.log("[CheckoutPage] Enviando dados para criar PIX MercadoPago:", paymentData);
-
-      const response = await fetch(`https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/create-mercadopago-payment`, {
+      const response = await fetch('http://localhost:3003/functions/generate-pix-with-tracking', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
         },
-        body: JSON.stringify(paymentData)
+        body: JSON.stringify({
+          nome: bookOrder.studentName || '',
+          cpf: bookOrder.cpf || '',
+          valor: bookOrder.price || 45
+        }),
       });
-
-      const result = await response.json();
-      console.log("[CheckoutPage] Resposta create-mercadopago-payment:", result);
 
       if (!response.ok) {
-        throw new Error(result?.error || "Erro ao criar pagamento PIX MercadoPago");
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao gerar PIX');
       }
 
-      if (!result.qr_code_base64 || !result.qr_code) {
-        throw new Error("QR Code do PIX não foi gerado pelo MercadoPago");
+      const data = await response.json();
+      
+      if (data.success) {
+        setPixKey(data.pix_code);
+        setQrCodeUrl(data.qr_code_base64);
+        setPaymentId(data.tracking_id);
+        setIdentificadorUnico(data.tracking_id);
+        setPixGenerated(true);
+        setPaymentStatus('pending');
+        
+        // PIX gerado com sucesso
+        
+        toast({
+          title: "PIX gerado com sucesso!",
+          description: "Escaneie o QR Code ou copie a chave PIX para realizar o pagamento.",
+        });
+      } else {
+        throw new Error(data.error || 'Erro ao gerar PIX');
       }
-
-      setPaymentId(result.payment_id || "");
-      setPixKey(result.qr_code);
-      setQrCodeData(result.qr_code_base64);
-
-      console.log("[CheckoutPage] PIX MercadoPago gerado com sucesso:", {
-        payment_id: result.payment_id,
-        qr_code_length: result.qr_code?.length,
-        qr_code_base64_length: result.qr_code_base64?.length
-      });
-
-    } catch (error: any) {
-      console.error('[CheckoutPage] Erro ao gerar PIX MercadoPago:', error);
-      
-      let errorMessage = "Tente novamente em alguns instantes.";
-      
-      if (error?.message?.includes("MERCADOPAGO_ACCESS_TOKEN")) {
-        errorMessage = "Erro de configuração do sistema. Contate o suporte.";
-      } else if (error?.message?.includes("unauthorized") || error?.message?.includes("401")) {
-        errorMessage = "Token de acesso inválido. Contate o suporte.";
-      } else if (error?.message?.includes("network") || error?.message?.includes("fetch")) {
-        errorMessage = "Erro de conexão. Verifique sua internet e tente novamente.";
-      }
-      
+    } catch (error) {
+      console.error('Erro ao gerar PIX:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao gerar PIX';
+      setPixError(errorMessage);
       toast({
-        title: "Erro ao gerar PIX MercadoPago",
+        title: "Erro ao gerar PIX",
         description: errorMessage,
-        variant: "destructive"
+        variant: "destructive",
       });
-      setPixKey("");
-      setQrCodeData("");
     } finally {
       setIsGeneratingPix(false);
     }
   };
 
-  const verifyPaymentStatus = async () => {
-    if (!paymentId) {
-      toast({
-        title: "Erro",
-        description: "ID do pagamento não encontrado.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setPaymentStatus('processing');
+  const regeneratePix = async () => {
+    setIsRegenerating(true);
+    setPixError("");
     
     try {
-      console.log("[CheckoutPage] Verificando status do pagamento MercadoPago:", paymentId);
-
-      const response = await fetch(`https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/check-payment-status`, {
+      // Usar a mesma função que gera PIX com identificador único
+      const response = await fetch('http://localhost:3003/functions/generate-pix-with-tracking', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
         },
-        body: JSON.stringify({ payment_id: paymentId })
+        body: JSON.stringify({
+          nome: bookOrder.studentName || '',
+          cpf: bookOrder.cpf || '',
+          valor: bookOrder.price || 45
+        }),
       });
 
-      const result = await response.json();
-      console.log("[CheckoutPage] Status do pagamento MercadoPago:", result);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao regenerar PIX');
+      }
 
-      if (result.status === 'approved') {
-        setPaymentStatus('confirmed');
+      const data = await response.json();
+      
+      if (data.success) {
+        // Atualizar com os novos dados únicos
+        setPixKey(data.pix_code);
+        setQrCodeUrl(data.qr_code_base64);
+        setPaymentId(data.tracking_id);
+        setIdentificadorUnico(data.tracking_id);
+        
+        // PIX regenerado com sucesso
+        
         toast({
-          title: "Pagamento confirmado!",
-          description: "Seu livro será enviado em breve. Você receberá uma confirmação via WhatsApp."
-        });
-      } else if (result.status === 'pending') {
-        setPaymentStatus('pending');
-        toast({
-          title: "Pagamento pendente",
-          description: "O pagamento ainda não foi processado. Aguarde alguns minutos e tente novamente.",
-          variant: "default"
+          title: "PIX regenerado com sucesso!",
+          description: "Novo QR Code e chave PIX únicos gerados.",
         });
       } else {
-        setPaymentStatus('pending');
-        toast({
-          title: "Pagamento não identificado",
-          description: "Aguarde alguns minutos e tente verificar novamente.",
-          variant: "destructive"
-        });
+        throw new Error(data.error || 'Erro ao regenerar PIX');
       }
-    } catch (error: any) {
-      console.error('[CheckoutPage] Erro ao verificar pagamento MercadoPago:', error);
-      setPaymentStatus('pending');
+    } catch (error) {
+      console.error('Erro ao regenerar PIX:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao regenerar PIX';
+      setPixError(errorMessage);
       toast({
-        title: "Erro ao verificar pagamento",
-        description: "Tente novamente em alguns instantes.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const cancelPayment = async () => {
-    const confirmed = window.confirm(
-      "⚠️ ATENÇÃO!\n\nAo cancelar o pagamento, seu pedido será EXCLUÍDO permanentemente do sistema.\n\nDeseja realmente cancelar o pagamento e excluir o pedido?\n\n✅ SIM - Cancelar e excluir pedido\n❌ NÃO - Manter pedido ativo"
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setIsCancelling(true);
-    
-    try {
-      console.log("[CheckoutPage] Cancelando pagamento e removendo registros");
-      
-      const response = await fetch(`https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/cancel-order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
-        },
-        body: JSON.stringify({
-          cpf: bookOrder.cpf,
-          livro: bookOrder.bookName,
-          payment_id: paymentId
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao cancelar pedido');
-      }
-
-      toast({
-        title: "Pedido cancelado com sucesso",
-        description: "Seu pedido foi cancelado e removido do sistema.",
-        variant: "default"
-      });
-
-      onBack();
-
-    } catch (error: any) {
-      console.error('[CheckoutPage] Erro ao cancelar pagamento:', error);
-      toast({
-        title: "Erro ao cancelar",
-        description: error?.message || "Tente novamente.",
-        variant: "destructive"
+        title: "Erro ao regenerar PIX",
+        description: errorMessage,
+        variant: "destructive",
       });
     } finally {
-      setIsCancelling(false);
+      setIsRegenerating(false);
     }
   };
 
-  const handleBackWithConfirmation = () => {
-    const confirmed = window.confirm(
-      "⚠️ ATENÇÃO!\n\nAo voltar para a página anterior, seu pedido será EXCLUÍDO permanentemente do sistema.\n\nDeseja realmente voltar e excluir o pedido?\n\n✅ SIM - Voltar e excluir pedido\n❌ NÃO - Permanecer na página de pagamento"
-    );
 
-    if (confirmed) {
-      cancelOrderAndGoBack();
-    }
-  };
 
-  const cancelOrderAndGoBack = async () => {
+  const cancelPayment = async () => {
+    if (!paymentId) return;
+    
     try {
-      console.log("[CheckoutPage] Cancelando pedido ao voltar");
-      
-      const response = await fetch(`https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/cancel-order`, {
+      const response = await fetch('http://localhost:3003/functions/cancel-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
         },
         body: JSON.stringify({
-          cpf: bookOrder.cpf,
-          livro: bookOrder.bookName,
-          payment_id: paymentId
-        })
+          paymentId: paymentId
+        }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.warn('Erro ao cancelar pedido:', errorData.error);
+        throw new Error('Erro ao cancelar pagamento');
       }
 
-      onBack();
-
-    } catch (error: any) {
-      console.error('[CheckoutPage] Erro ao cancelar pedido ao voltar:', error);
-      onBack(); // Volta mesmo se houver erro no cancelamento
+      const data = await response.json();
+      
+      if (data.success) {
+        setPaymentStatus('cancelled');
+        
+        toast({
+          title: "Pagamento cancelado",
+          description: "O pagamento foi cancelado com sucesso.",
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao cancelar pagamento:', error);
+      toast({
+        title: "Erro ao cancelar",
+        description: "Não foi possível cancelar o pagamento.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -262,354 +216,525 @@ const CheckoutPage = ({ bookOrder, onBack }: CheckoutPageProps) => {
     navigator.clipboard.writeText(pixKey);
     toast({
       title: "Chave PIX copiada!",
-      description: "Cole no seu aplicativo de pagamentos."
+      description: "A chave PIX foi copiada para a área de transferência.",
     });
   };
 
-  useEffect(() => {
-    generateRealPix();
-    
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (paymentStatus === 'pending' && paymentId) {
-        navigator.sendBeacon(
-          `https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/cancel-order`,
-          JSON.stringify({
-            cpf: bookOrder.cpf,
-            livro: bookOrder.bookName,
-            payment_id: paymentId
-          })
-        );
+  // Função para confirmar pagamento PIX estático
+  const confirmPayment = async () => {
+    if (!identificadorUnico) {
+      toast({
+        title: "Erro",
+        description: "Nenhum PIX gerado para confirmar.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsConfirmingPayment(true);
+
+    try {
+      const response = await fetch('http://localhost:3003/functions/confirm-pix-by-id', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          identificador: identificadorUnico,
+          valor_pago: bookOrder.price || 45,
+          data_pagamento: new Date().toLocaleString('pt-BR'),
+          observacoes: 'Pagamento confirmado manualmente'
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setPaymentStatus('approved');
+        toast({
+          title: "Pagamento Confirmado!",
+          description: "O pagamento foi confirmado com sucesso.",
+        });
+
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao confirmar pagamento');
       }
+    } catch (error) {
+      console.error('❌ Erro ao confirmar pagamento:', error);
+      toast({
+        title: "Erro na confirmação",
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+        variant: "destructive"
+      });
+    } finally {
+      setIsConfirmingPayment(false);
+    }
+  };
+
+
+
+
+
+
+
+  useEffect(() => {
+    if (!pixGenerated) {
+      generateRealPix();
+    }
+  }, [pixGenerated]);
+
+  // Atualizar progresso baseado no status
+  useEffect(() => {
+    if (!pixGenerated) {
+      setCurrentStep(1);
+      setProgressValue(25);
+    } else if (pixGenerated && paymentStatus === 'pending') {
+      setCurrentStep(2);
+      setProgressValue(50);
+    } else if (paymentStatus === 'processing') {
+      setCurrentStep(3);
+      setProgressValue(75);
+    } else if (paymentStatus === 'approved') {
+      setCurrentStep(4);
+      setProgressValue(100);
+    }
+  }, [pixGenerated, paymentStatus]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Cleanup se necessário quando a página for recarregada
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-    
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, []);
+  }, [paymentStatus, paymentId]);
+
+
+
+  const getStatusColor = () => {
+    switch (paymentStatus) {
+      case 'approved': return 'text-green-600';
+      case 'rejected': return 'text-red-600';
+      case 'cancelled': return 'text-gray-600';
+      case 'processing': return 'text-yellow-600';
+      default: return 'text-blue-600';
+    }
+  };
+
+  const getStatusText = () => {
+    switch (paymentStatus) {
+      case 'approved': return 'Pagamento Aprovado';
+      case 'rejected': return 'Pagamento Rejeitado';
+      case 'cancelled': return 'Pagamento Cancelado';
+      case 'processing': return 'Processando Pagamento';
+      default: return 'Aguardando Pagamento';
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
-      {/* Floating decorative elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-green-400/20 to-blue-400/20 rounded-full blur-3xl animate-float" style={{animationDelay: '2s'}}></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-3xl animate-float" style={{animationDelay: '4s'}}></div>
-      </div>
-
-      <div className="relative z-10 w-full max-w-7xl mx-auto p-4 space-y-8">
-        {/* Progress Indicator */}
-        <div className="flex items-center justify-center mb-6 md:mb-8 px-4">
-          <div className="flex items-center space-x-2 md:space-x-4 bg-white/80 backdrop-blur-sm rounded-full px-3 md:px-6 py-2 md:py-3 shadow-lg border border-white/20 overflow-x-auto">
-            <div className="flex items-center space-x-1 md:space-x-2 text-green-600 flex-shrink-0">
-              <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <User className="w-3 h-3 md:w-4 md:h-4" />
-              </div>
-              <span className="text-xs md:text-sm font-medium hidden sm:block">CPF</span>
-            </div>
-            <div className="w-4 md:w-8 h-0.5 bg-green-300 flex-shrink-0"></div>
-            <div className="flex items-center space-x-1 md:space-x-2 text-green-600 flex-shrink-0">
-              <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <FileText className="w-3 h-3 md:w-4 md:h-4" />
-              </div>
-              <span className="text-xs md:text-sm font-medium hidden sm:block">Cadastro</span>
-            </div>
-            <div className="w-4 md:w-8 h-0.5 bg-green-300 flex-shrink-0"></div>
-            <div className="flex items-center space-x-1 md:space-x-2 text-green-600 flex-shrink-0">
-              <div className="w-6 h-6 md:w-8 md:h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <Book className="w-3 h-3 md:w-4 md:h-4" />
-              </div>
-              <span className="text-xs md:text-sm font-medium hidden sm:block">Livros</span>
-            </div>
-            <div className="w-4 md:w-8 h-0.5 bg-blue-300 flex-shrink-0"></div>
-            <div className="flex items-center space-x-1 md:space-x-2 text-blue-600 flex-shrink-0">
-              <div className="w-6 h-6 md:w-8 md:h-8 bg-blue-100 rounded-full flex items-center justify-center animate-pulse">
-                <CreditCard className="w-3 h-3 md:w-4 md:h-4" />
-              </div>
-              <span className="text-xs md:text-sm font-medium hidden sm:block">Pagamento</span>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 relative overflow-hidden">
+      <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl animate-float"></div>
+      <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-float" style={{animationDelay: '2s'}}></div>
+      
+      <div className="relative z-10 container mx-auto px-4 py-6 md:py-8">
+        <div className="flex items-center gap-4 mb-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onBack}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-800 hover:bg-white/50 transition-all duration-200"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Voltar</span>
+          </Button>
+          
+          <div className="flex-1">
+            <h1 className="text-xl md:text-2xl font-bold text-gray-800">Finalizar Pedido</h1>
+            <p className="text-gray-600 text-sm mt-1">Complete seu pagamento via PIX</p>
           </div>
         </div>
 
-        <Card className="glass border-0 shadow-2xl overflow-hidden animate-fade-in">
-          <CardHeader className="gradient-primary text-white relative overflow-hidden">
-            <div 
-              className="absolute inset-0 opacity-20"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-              }}
-            ></div>
-            <div className="relative z-10 flex items-center gap-4">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleBackWithConfirmation} 
-                className="text-white hover:bg-white/20 transition-all duration-300 hover:scale-105"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <CreditCard className="h-8 w-8" />
-                </div>
-                <div>
-                  <CardTitle className="text-2xl md:text-3xl font-bold text-glow">
-                    Checkout - Pagamento PIX
-                  </CardTitle>
-                  <CardDescription className="text-blue-100 text-lg">
-                    Finalize seu pedido com pagamento instantâneo e seguro
-                  </CardDescription>
-                </div>
+        {/* Barra de Progresso */}
+        <div className="mb-6">
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center gap-2">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                currentStep >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
+              }`}>
+                1
               </div>
+              <span className={`text-sm font-medium ${
+                currentStep >= 1 ? 'text-blue-600' : 'text-gray-500'
+              }`}>Dados</span>
             </div>
-          </CardHeader>
+            
+            <div className="flex items-center gap-2">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                currentStep >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
+              }`}>
+                2
+              </div>
+              <span className={`text-sm font-medium ${
+                currentStep >= 2 ? 'text-blue-600' : 'text-gray-500'
+              }`}>PIX Gerado</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                currentStep >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
+              }`}>
+                3
+              </div>
+              <span className={`text-sm font-medium ${
+                currentStep >= 3 ? 'text-blue-600' : 'text-gray-500'
+              }`}>Processando</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                currentStep >= 4 ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-500'
+              }`}>
+                {currentStep >= 4 ? <CheckCircle className="h-4 w-4" /> : '4'}
+              </div>
+              <span className={`text-sm font-medium ${
+                currentStep >= 4 ? 'text-green-600' : 'text-gray-500'
+              }`}>Concluído</span>
+            </div>
+          </div>
           
-          <CardContent className="p-4 md:p-8">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 md:gap-10">
-              {/* Order Summary */}
-              <div className="space-y-4 md:space-y-6 animate-slide-in">
-                <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
-                  <div className="p-1.5 md:p-2 bg-blue-100 rounded-lg">
-                    <Book className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
+          <Progress value={progressValue} className="h-2" />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+          <div className="space-y-4">
+            <Card className="glass border-white/20 shadow-xl">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <FileText className="h-4 w-4 text-blue-600" />
                   </div>
-                  <h3 className="text-xl md:text-2xl font-bold text-gray-800">Resumo do Pedido</h3>
+                  <div>
+                    <CardTitle className="text-lg text-gray-800">Resumo do Pedido</CardTitle>
+                    <CardDescription className="text-sm text-gray-600">Confira os detalhes</CardDescription>
+                  </div>
                 </div>
-                
-                <div className="glass-dark p-4 md:p-8 rounded-2xl space-y-4 md:space-y-6 border border-white/20">
-                  <div className="flex justify-between items-center py-2 md:py-3 border-b border-gray-200/50">
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="glass-dark p-3 md:p-4 rounded-xl space-y-3 border border-white/20">
+                  <div className="flex justify-between items-center py-1.5 border-b border-gray-200/50">
                     <div className="flex items-center gap-2">
-                      <User className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-                      <span className="text-gray-600 font-medium text-sm md:text-base">Aluno:</span>
+                      <User className="h-3 w-3 text-gray-500" />
+                      <span className="text-sm text-gray-600 font-medium">Nome:</span>
                     </div>
-                    <span className="font-semibold text-gray-800 text-sm md:text-base text-right">{bookOrder.studentName}</span>
+                    <span className="text-sm font-semibold text-gray-800">{bookOrder.studentName || 'N/A'}</span>
                   </div>
                   
-                  <div className="flex justify-between items-center py-2 md:py-3 border-b border-gray-200/50">
+                  <div className="flex justify-between items-center py-1.5 border-b border-gray-200/50">
                     <div className="flex items-center gap-2">
-                      <FileText className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-                      <span className="text-gray-600 font-medium text-sm md:text-base">CPF:</span>
+                      <Hash className="h-3 w-3 text-gray-500" />
+                      <span className="text-sm text-gray-600 font-medium">CPF:</span>
                     </div>
-                    <span className="font-semibold text-gray-800 font-mono text-sm md:text-base">{bookOrder.cpf}</span>
+                    <span className="text-sm font-semibold text-gray-800">{bookOrder.cpf || 'N/A'}</span>
                   </div>
                   
-                  <div className="flex justify-between items-center py-2 md:py-3 border-b border-gray-200/50">
+                  <div className="flex justify-between items-center py-1.5 border-b border-gray-200/50">
                     <div className="flex items-center gap-2">
-                      <Book className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-                      <span className="text-gray-600 font-medium text-sm md:text-base">Ciclo:</span>
+                      <FileText className="h-3 w-3 text-gray-500" />
+                      <span className="text-sm text-gray-600 font-medium">Ciclo:</span>
                     </div>
-                    <span className="font-semibold text-gray-800 text-sm md:text-base text-right">{bookOrder.cycle || "1º Ciclo Básico"}</span>
+                    <span className="text-sm font-semibold text-gray-800">{bookOrder.cycle || 'N/A'}</span>
                   </div>
                   
-                  <div className="flex justify-between items-center py-2 md:py-3 border-b border-gray-200/50">
+                  <div className="flex justify-between items-center py-1.5">
                     <div className="flex items-center gap-2">
-                      <Book className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-                      <span className="text-gray-600 font-medium text-sm md:text-base">Livro:</span>
+                      <Book className="h-3 w-3 text-gray-500" />
+                      <span className="text-sm text-gray-600 font-medium">Livro:</span>
                     </div>
-                    <span className="font-semibold text-gray-800 text-right max-w-xs text-sm md:text-base">{bookOrder.bookName}</span>
+                    <span className="text-sm font-semibold text-gray-800">{bookOrder.bookName || 'N/A'}</span>
                   </div>
                   
-                  <div className="gradient-success rounded-xl px-4 md:px-6 py-3 md:py-4 border border-green-200/50">
+                  <div className="pt-3 border-t border-gray-200/50">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
-                        <DollarSign className="h-5 w-5 md:h-6 md:w-6 text-green-800" />
-                        <span className="text-lg md:text-xl font-bold text-green-800">Total:</span>
+                        <DollarSign className="h-4 w-4 text-green-600" />
+                        <span className="text-base font-bold text-gray-800">Total:</span>
                       </div>
-                      <span className="text-2xl md:text-3xl font-bold text-green-700">R$ {bookOrder.price.toFixed(2)}</span>
+                      <span className="text-xl font-bold text-green-600">
+                        R$ {(bookOrder.price || 0).toFixed(2).replace('.', ',')}
+                      </span>
                     </div>
                   </div>
                 </div>
-              </div>
+              </CardContent>
+            </Card>
+          </div>
 
-              {/* PIX Payment */}
-              <div className="space-y-4 md:space-y-6 animate-slide-in" style={{animationDelay: '0.2s'}}>
-                <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
-                  <div className="p-1.5 md:p-2 bg-green-100 rounded-lg">
-                    <QrCode className="h-5 w-5 md:h-6 md:w-6 text-green-600" />
+          <div className="space-y-4">
+            <Card className="glass border-white/20 shadow-xl">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <QrCode className="h-4 w-4 text-green-600" />
                   </div>
-                  <h3 className="text-xl md:text-2xl font-bold text-gray-800">Pagamento PIX</h3>
+                  <div className="flex-1">
+                    <CardTitle className="text-lg text-gray-800">Pagamento PIX</CardTitle>
+                    <CardDescription className="text-sm text-gray-600">Escaneie o QR Code ou copie a chave</CardDescription>
+                  </div>
+                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor()} bg-white/50`}>
+                    {getStatusText()}
+                  </div>
                 </div>
-                
-                {isGeneratingPix ? (
-                  <div className="glass p-6 md:p-12 text-center rounded-2xl border border-white/20">
-                    <div className="relative">
-                      <div className="w-12 h-12 md:w-16 md:h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4 md:mb-6"></div>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Zap className="h-5 w-5 md:h-6 md:w-6 text-blue-600 animate-pulse" />
-                      </div>
-                    </div>
-                    <p className="text-lg md:text-xl font-semibold text-blue-700 mb-2">Gerando chave PIX...</p>
-                    <p className="text-sm md:text-base text-blue-600">Conectando com MercadoPago</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isGeneratingPix && (
+                  <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                    <p className="text-gray-600 text-center">Gerando PIX...</p>
                   </div>
-                ) : (
-                  <div className="space-y-6 md:space-y-8">
-                    {/* QR Code Section */}
-                    <div className="glass text-center p-4 md:p-8 rounded-2xl border border-white/20">
-                      {qrCodeData ? (
-                        <div className="space-y-4 md:space-y-6">
-                          <div className="relative inline-block">
-                            <img
-                              src={`data:image/png;base64,${qrCodeData}`}
-                              alt="QR Code PIX"
-                              className="w-48 h-48 md:w-64 md:h-64 mx-auto rounded-2xl border-4 border-white shadow-2xl hover:scale-105 transition-transform duration-300"
-                            />
-                            <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
-                              <CheckCircle className="h-5 w-5 text-white" />
-                            </div>
-                          </div>
-                          <div className="gradient-success p-4 rounded-xl border border-green-200/50">
-                            <div className="flex items-center justify-center gap-2">
-                              <Smartphone className="h-5 w-5 text-green-800" />
-                              <p className="font-semibold text-green-800">
-                                Escaneie com seu app de pagamentos
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="w-48 h-48 md:w-64 md:h-64 bg-gray-100 mx-auto rounded-2xl flex items-center justify-center border-4 border-gray-200">
-                          <QrCode className="h-24 w-24 md:h-32 md:w-32 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
+                )}
 
-                    {/* PIX Key Section */}
-                    <div className="space-y-3 md:space-y-4">
-                      <Label className="text-base md:text-lg font-semibold text-gray-700 flex items-center gap-2">
-                        <Copy className="h-4 w-4 md:h-5 md:w-5" />
-                        Ou copie a chave PIX:
-                      </Label>
-                      <div className="flex gap-2 md:gap-3">
-                        <Input
-                          value={pixKey}
-                          readOnly
-                          className="text-xs md:text-sm font-mono bg-white/80 border-2 border-gray-200 rounded-xl px-3 md:px-4 py-2 md:py-3 focus:border-blue-400 transition-colors"
+                {pixError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-red-800">
+                      <X className="h-4 w-4" />
+                      <span className="font-medium">Erro ao gerar PIX</span>
+                    </div>
+                    <p className="text-red-700 text-sm mt-1">{pixError}</p>
+                    <Button 
+                      onClick={generateRealPix} 
+                      className="mt-3 bg-red-600 hover:bg-red-700"
+                      size="sm"
+                    >
+                      Tentar Novamente
+                    </Button>
+                  </div>
+                )}
+
+                {pixGenerated && qrCodeUrl && (
+                  <div className="space-y-4">
+                    <div className="flex flex-col items-center space-y-3">
+                      <div className="bg-white p-3 rounded-xl shadow-lg border border-gray-200">
+                        <img 
+                          src={qrCodeUrl} 
+                          alt="QR Code PIX" 
+                          className="w-40 h-40 md:w-44 md:h-44"
                         />
-                        <Button
-                          type="button"
-                          onClick={copyPixKey}
-                          className="btn-modern px-4 md:px-6 py-2 md:py-3 rounded-xl flex-shrink-0"
+                      </div>
+                      
+                      <div className="flex gap-2 flex-wrap justify-center">
+                        <Button 
+                          onClick={regeneratePix}
+                          variant="default"
+                          size="sm"
+                          disabled={isRegenerating}
+                          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
                         >
-                          <Copy className="h-4 w-4 md:h-5 md:w-5" />
+                          {isRegenerating ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                          Regenerar PIX
+                        </Button>
+                        
+                        <Button 
+                          onClick={cancelPayment}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2 text-red-600 hover:text-white hover:bg-red-600 border-red-300 hover:border-red-600 font-medium px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                        >
+                          <X className="h-4 w-4" />
+                          Cancelar Pedido
                         </Button>
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="space-y-3 md:space-y-4">
+                    <div className="space-y-3">
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <Label className="text-xs font-medium text-gray-700 mb-2 block">Chave PIX (Copia e Cola)</Label>
+                        <div className="flex gap-2">
+                          <Input 
+                            value={pixKey} 
+                            readOnly 
+                            className="font-mono text-xs bg-white h-8"
+                          />
+                          <Button 
+                            onClick={copyPixKey}
+                            size="sm"
+                            className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 h-8 px-3"
+                          >
+                            <Copy className="h-3 w-3" />
+                            Copiar
+                          </Button>
+                        </div>
+                      </div>
+
                       {paymentStatus === 'pending' && (
-                        <div className="space-y-3 md:space-y-4">
-                          <Button
-                            onClick={verifyPaymentStatus}
-                            className="w-full btn-modern bg-green-600 hover:bg-green-700 text-white py-3 md:py-4 rounded-xl text-base md:text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
-                            disabled={!paymentId}
-                          >
-                            <CheckCircle className="h-5 w-5 md:h-6 md:w-6 mr-2 md:mr-3" />
-                            Verificar Pagamento
-                          </Button>
-                          
-                          <Button
-                            onClick={cancelPayment}
-                            variant="outline"
-                            className="w-full border-2 border-red-300 text-red-600 hover:bg-red-50 py-3 md:py-4 rounded-xl text-base md:text-lg font-semibold transition-all duration-300 hover:border-red-400"
-                            disabled={isCancelling || !paymentId}
-                          >
-                            {isCancelling ? (
-                              <>
-                                <Loader2 className="h-4 w-4 md:h-5 md:w-5 mr-2 md:mr-3 animate-spin" />
-                                <span className="text-sm md:text-base">Cancelando...</span>
-                              </>
-                            ) : (
-                              <>
-                                <X className="h-4 w-4 md:h-5 md:w-5 mr-2 md:mr-3" />
-                                <span className="text-sm md:text-base">Cancelar Pedido</span>
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      )}
-
-                      {paymentStatus === 'processing' && (
-                        <div className="glass text-center p-6 md:p-8 rounded-2xl border border-blue-200/50">
-                          <div className="relative">
-                            <div className="w-10 h-10 md:w-12 md:h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-3 md:mb-4"></div>
-                            <Clock className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-blue-600" />
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <div className="flex items-center gap-2 text-blue-800 mb-1">
+                            <Clock className="h-3 w-3" />
+                            <span className="text-sm font-medium">Aguardando Pagamento</span>
                           </div>
-                          <p className="text-lg md:text-xl font-semibold text-blue-700 mb-2">Verificando pagamento...</p>
-                          <p className="text-sm md:text-base text-blue-600">Aguarde alguns instantes</p>
-                        </div>
-                      )}
-
-                      {paymentStatus === 'confirmed' && (
-                        <div className="gradient-success text-center p-6 md:p-8 rounded-2xl border border-green-200/50 animate-fade-in">
-                          <div className="relative">
-                            <CheckCircle className="h-16 w-16 md:h-20 md:w-20 text-green-600 mx-auto mb-4 md:mb-6 animate-bounce" />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="w-16 h-16 md:w-20 md:h-20 bg-green-400/20 rounded-full animate-ping"></div>
-                            </div>
-                          </div>
-                          <h4 className="text-xl md:text-2xl font-bold text-green-800 mb-3">
-                            🎉 Pagamento Confirmado!
-                          </h4>
-                          <p className="text-green-700 font-medium text-base md:text-lg">
-                            Seu livro será processado em breve. Você receberá uma confirmação via WhatsApp.
+                          <p className="text-blue-700 text-xs mb-2">
+                            Estamos verificando automaticamente o status do seu pagamento. 
+                            Você será notificado assim que o pagamento for confirmado.
                           </p>
+                          <div className="flex items-center gap-2 text-blue-600 text-xs">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <span>Verificando a cada 5 segundos...</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {paymentStatus === 'approved' && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <div className="flex items-center gap-2 text-green-800 mb-1">
+                            <CheckCircle className="h-4 w-4" />
+                            <span className="text-sm font-medium">Pagamento Confirmado!</span>
+                          </div>
+                          <p className="text-green-700 text-xs">
+                            Seu pagamento foi aprovado com sucesso. Você receberá uma confirmação por email em breve.
+                          </p>
+                        </div>
+                      )}
+
+                      {paymentStatus === 'rejected' && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                          <div className="flex items-center gap-2 text-red-800 mb-1">
+                            <X className="h-4 w-4" />
+                            <span className="text-sm font-medium">Pagamento Rejeitado</span>
+                          </div>
+                          <p className="text-red-700 text-xs mb-2">
+                            O pagamento foi rejeitado. Tente novamente ou entre em contato conosco.
+                          </p>
+                          <Button 
+                            onClick={regeneratePix}
+                            size="sm"
+                            className="bg-red-600 hover:bg-red-700"
+                          >
+                            Gerar Novo PIX
+                          </Button>
                         </div>
                       )}
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            {/* Instructions */}
-            <div className="mt-8 md:mt-12 glass-dark p-4 md:p-8 rounded-2xl border border-white/20 animate-fade-in" style={{animationDelay: '0.4s'}}>
-              <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
-                <div className="p-1.5 md:p-2 bg-blue-100 rounded-lg">
-                  <Info className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
-                </div>
-                <h4 className="text-lg md:text-xl font-bold text-blue-900">Instruções para pagamento:</h4>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-                <div className="space-y-3 md:space-y-4">
-                  <div className="flex items-start gap-3 md:gap-4 p-3 md:p-4 bg-white/50 rounded-xl">
-                    <div className="w-7 h-7 md:w-8 md:h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs md:text-sm font-bold flex-shrink-0">1</div>
-                    <p className="text-blue-800 font-medium text-sm md:text-base">Abra seu aplicativo de pagamentos (Banco, PicPay, etc.)</p>
+            <Card className="glass border-white/20 shadow-xl">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Info className="h-5 w-5 text-purple-600" />
                   </div>
-                  <div className="flex items-start gap-3 md:gap-4 p-3 md:p-4 bg-white/50 rounded-xl">
-                    <div className="w-7 h-7 md:w-8 md:h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs md:text-sm font-bold flex-shrink-0">2</div>
-                    <p className="text-blue-800 font-medium text-sm md:text-base">Escolha a opção "PIX" e depois "Ler QR Code" ou "Colar código"</p>
+                  <div>
+                    <CardTitle className="text-lg text-gray-800">Instruções de Pagamento</CardTitle>
+                    <CardDescription className="text-gray-600">Como realizar o pagamento PIX</CardDescription>
                   </div>
                 </div>
-                <div className="space-y-3 md:space-y-4">
-                  <div className="flex items-start gap-3 md:gap-4 p-3 md:p-4 bg-white/50 rounded-xl">
-                    <div className="w-7 h-7 md:w-8 md:h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs md:text-sm font-bold flex-shrink-0">3</div>
-                    <p className="text-blue-800 font-medium text-sm md:text-base">Escaneie o QR Code acima ou cole a chave PIX</p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4 text-sm text-gray-600">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xs mt-0.5">
+                      1
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800">Abra seu app bancário</p>
+                      <p className="text-gray-600">Acesse a área PIX do seu banco ou carteira digital</p>
+                    </div>
                   </div>
-                  <div className="flex items-start gap-3 md:gap-4 p-3 md:p-4 bg-white/50 rounded-xl">
-                    <div className="w-7 h-7 md:w-8 md:h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs md:text-sm font-bold flex-shrink-0">4</div>
-                    <p className="text-blue-800 font-medium text-sm md:text-base">Confirme o pagamento no valor de <span className="font-bold">R$ {bookOrder.price.toFixed(2)}</span></p>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xs mt-0.5">
+                      2
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800">Escaneie o QR Code ou copie a chave</p>
+                      <p className="text-gray-600">Use a câmera para ler o QR Code ou cole a chave PIX</p>
+                    </div>
                   </div>
-                  <div className="flex items-start gap-3 md:gap-4 p-3 md:p-4 bg-white/50 rounded-xl">
-                    <div className="w-7 h-7 md:w-8 md:h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs md:text-sm font-bold flex-shrink-0">5</div>
-                    <p className="text-blue-800 font-medium text-sm md:text-base">Após o pagamento, clique em "Verificar Pagamento"</p>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xs mt-0.5">
+                      3
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800">Confirme o pagamento</p>
+                      <p className="text-gray-600">Verifique os dados e confirme a transação</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold text-xs mt-0.5">
+                      4
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800">Confirme o pagamento</p>
+                      <p className="text-gray-600">Após realizar o PIX, clique no botão "Confirmar Pagamento" abaixo</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-              
-              <div className="mt-4 md:mt-6 p-3 md:p-4 bg-green-50/80 rounded-xl border border-green-200/50">
-                <div className="flex items-center gap-2 mb-2">
-                  <Shield className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
-                  <span className="font-semibold text-green-800 text-sm md:text-base">Pagamento Seguro</span>
+                
+                <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-yellow-800 mb-2">
+                    <Smartphone className="h-4 w-4" />
+                    <span className="font-medium text-sm">Dica Importante</span>
+                  </div>
+                  <p className="text-yellow-700 text-xs">
+                    Após realizar o pagamento PIX, clique no botão "Confirmar Pagamento" para finalizar o processo.
+                  </p>
                 </div>
-                <p className="text-green-700 text-xs md:text-sm">
-                  Seus dados estão protegidos e o pagamento é processado pelo MercadoPago com total segurança.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                
+                {/* Botão de confirmação de pagamento */}
+                {pixGenerated && paymentStatus === 'pending' && (
+                  <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-green-800 mb-2">
+                      <CheckCircle className="h-4 w-4" />
+                      <span className="font-medium text-sm">Confirmar Pagamento</span>
+                    </div>
+                    <p className="text-green-700 text-xs mb-3">
+                      Após realizar o pagamento PIX, clique no botão abaixo para confirmar:
+                    </p>
+                    
+                    {isConfirmingPayment && (
+                      <div className="mb-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Loader2 className="h-4 w-4 animate-spin text-green-600" />
+                          <span className="text-sm text-green-700 font-medium">Confirmando Pagamento...</span>
+                        </div>
+                        <Progress value={75} className="h-2 bg-green-100">
+                          <div className="h-full bg-green-500 transition-all duration-300 ease-in-out" style={{width: '75%'}} />
+                        </Progress>
+                      </div>
+                    )}
+                    
+                    <Button
+                      onClick={confirmPayment}
+                      disabled={isConfirmingPayment}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg text-sm transition-colors disabled:opacity-50"
+                    >
+                      {isConfirmingPayment ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Confirmando...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Confirmar Pagamento
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

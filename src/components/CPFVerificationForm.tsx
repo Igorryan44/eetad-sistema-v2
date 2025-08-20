@@ -61,12 +61,11 @@ const CPFVerificationForm = ({ onCPFVerified, onCancel }: CPFVerificationFormPro
 
   const consultarCPFNoGoogleSheets = async (cpf: string): Promise<Student> => {
     try {
-      // Consultar a planilha Google Sheets via Edge Function
-      const response = await fetch(`https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/check-student-cpf`, {
+      // Consultar a planilha Google Sheets via servidor local
+      const response = await fetch(`http://localhost:3003/functions/get-student-personal-data`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ cpf })
       });
@@ -80,9 +79,9 @@ const CPFVerificationForm = ({ onCPFVerified, onCancel }: CPFVerificationFormPro
       if (data.found) {
         // CPF encontrado na planilha
         return {
-          cpf: data.student.cpf,
-          nome: data.student.nome,
-          email: data.student.email,
+          cpf: data.data.cpf,
+          nome: data.data.nome,
+          email: data.data.email,
           registered: true
         };
       } else {

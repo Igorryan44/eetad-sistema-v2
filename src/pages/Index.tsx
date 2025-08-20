@@ -24,6 +24,7 @@ export type BookOrder = {
   bookName: string;
   price: number;
   cycle?: string;
+  external_reference?: string;
 };
 
 const Index = () => {

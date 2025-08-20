@@ -1,7 +1,7 @@
 {
   "name": "eetad-local-server",
   "version": "1.0.0",
-  "description": "Servidor local para funções do Supabase",
+  "description": "Servidor local para o sistema EETAD",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -13,26 +13,28 @@
     "setup-credentials": "node scripts/setup-google-credentials.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
     "cors": "^2.8.5",
+    "crypto": "^1.0.1",
     "dotenv": "^16.3.1",
-    "jsonwebtoken": "^9.0.2",
-    "node-fetch": "^3.3.2",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
     "google-auth-library": "^9.4.1",
     "googleapis": "^129.0.0",
-    "nodemailer": "^6.9.7",
-    "crypto": "^1.0.1",
     "helmet": "^7.1.0",
-    "express-rate-limit": "^7.1.5"
+    "jsonwebtoken": "^9.0.2",
+    "node-fetch": "^3.3.2",
+    "nodemailer": "^6.9.7",
+    "pix-utils": "^2.8.2",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
   },
   "keywords": [
-    "supabase",
     "local",
     "functions",
-    "eetad"
+    "eetad",
+    "express"
   ],
   "author": "EETAD Team",
   "license": "MIT"

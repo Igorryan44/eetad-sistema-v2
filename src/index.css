@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    --background: 207 100% 50%;
+    --background: 0 0% 100%; /* Branco */
     --foreground: 0 0% 0%;
 
     --card: 0 0% 100%;
@@ -31,7 +31,7 @@
     --destructive-foreground: 210 40% 98%;
 
     --border: 0 0% 80%;
-    --input: 214.3 31.8% 91.4%;
+    --input: 0 0% 100%; /* Branco para inputs */
     --ring: 0 0% 0%;
 
     --radius: 0.5rem;
@@ -59,7 +59,7 @@
   }
 
   .dark {
-    --background: 207 100% 50%;
+    --background: 0 0% 100%; /* Branco mesmo no modo dark */
     --foreground: 0 0% 0%;
 
     --card: 0 0% 100%;
@@ -84,7 +84,7 @@
     --destructive-foreground: 210 40% 98%;
 
     --border: 0 0% 80%;
-    --input: 217.2 32.6% 17.5%;
+    --input: 0 0% 100%; /* Branco para inputs no modo dark */
     --ring: 0 0% 0%;
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 0 0% 0%;
@@ -106,9 +106,32 @@
     @apply bg-background text-foreground;
   }
 
-  /* Garantir que todos os inputs tenham fundo branco */
+  /* Garantir que todos os inputs tenham fundo branco e texto preto */
   input, textarea, select {
-    @apply bg-white text-gray-900;
+    @apply bg-white text-black;
+    background-color: white !important;
+    color: black !important;
+  }
+
+  /* Forçar estilos específicos para inputs do formulário */
+  .registration-form input,
+  .registration-form textarea,
+  .registration-form select,
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="date"],
+  input[type="password"] {
+    background-color: white !important;
+    color: black !important;
+    border: 2px solid #e5e7eb !important;
+  }
+
+  /* Estilos para SelectTrigger */
+  [data-radix-select-trigger] {
+    background-color: white !important;
+    color: black !important;
+    border: 2px solid #e5e7eb !important;
   }
 
   /* Classes personalizadas EETAD */

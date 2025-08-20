@@ -34,10 +34,12 @@ import { usePendingStudents, PendingStudent, EnrollmentData } from '@/services/p
 
 interface PendingStudentsManagerProps {
   onStudentEnrolled?: (student: PendingStudent) => void;
+  openEnrollmentForStudent?: PendingStudent | null;
 }
 
 const PendingStudentsManager: React.FC<PendingStudentsManagerProps> = ({ 
-  onStudentEnrolled 
+  onStudentEnrolled,
+  openEnrollmentForStudent 
 }) => {
   const { 
     students, 
@@ -52,33 +54,57 @@ const PendingStudentsManager: React.FC<PendingStudentsManagerProps> = ({
   const [selectedStudent, setSelectedStudent] = useState<PendingStudent | null>(null);
   const [isEnrollmentDialogOpen, setIsEnrollmentDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterNucleo, setFilterNucleo] = useState<string>('');
+  const [filterNucleo, setFilterNucleo] = useState<string>('todos');
   const [enrollmentForm, setEnrollmentForm] = useState({
     ciclo: '',
     subnucleo: '',
     status: 'Matriculado',
     observacao: ''
   });
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState('');
+
+  // Abrir modal automaticamente quando um estudante for passado via prop
+  useEffect(() => {
+    if (openEnrollmentForStudent && students.length > 0) {
+      const student = students.find(s => s.cpf === openEnrollmentForStudent.cpf);
+      if (student) {
+        openEnrollmentDialog(student);
+      }
+    }
+  }, [openEnrollmentForStudent, students]);
+
+  // Limpar o estudante selecionado quando o modal for fechado
+  useEffect(() => {
+    if (!isEnrollmentDialogOpen && selectedStudent) {
+      setSelectedStudent(null);
+    }
+  }, [isEnrollmentDialogOpen, selectedStudent]);
 
   // Filtrar estudantes
   const filteredStudents = students.filter(student => {
-    const matchesSearch = !searchTerm || 
+    const matchesSearch = 
       student.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.cpf.includes(searchTerm);
     
-    const matchesNucleo = !filterNucleo || student.nucleo === filterNucleo;
+    const matchesNucleo = filterNucleo === 'todos' || !filterNucleo || student.nucleo === filterNucleo;
     
     return matchesSearch && matchesNucleo;
   });
 
-  // Obter núcleos únicos para filtro
+  // Obter congregações únicas para filtro
   const nucleos = [...new Set(students.map(s => s.nucleo).filter(Boolean))];
 
   // Lidar com efetivação de matrícula
   const handleEnrollStudent = async () => {
     if (!selectedStudent) return;
 
+    setIsProcessing(true);
+    
     try {
+      // Etapa 1: Efetivando matrícula
+      setProcessingStep('Efetivando a matrícula...');
+      
       const enrollmentData: EnrollmentData = {
         rowIndex: selectedStudent.rowIndex,
         cpf: selectedStudent.cpf,
@@ -90,13 +116,23 @@ const PendingStudentsManager: React.FC<PendingStudentsManagerProps> = ({
 
       await finalizeEnrollment(enrollmentData);
 
+      // Etapa 2: Atualizando status
+      setProcessingStep('Atualizando status do aluno...');
+      
+      // Forçar atualização dos dados primeiro
+
+      await refresh();
+
+      // Aguardar um pouco para garantir que os dados foram atualizados
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Callback opcional - executar após a atualização
+      onStudentEnrolled?.(selectedStudent);
+
       toast({
         title: "✅ Sucesso!",
         description: `Matrícula de ${selectedStudent.nome} efetivada com sucesso`,
       });
-
-      // Callback opcional
-      onStudentEnrolled?.(selectedStudent);
 
       // Fechar dialog e limpar formulário
       setIsEnrollmentDialogOpen(false);
@@ -114,6 +150,9 @@ const PendingStudentsManager: React.FC<PendingStudentsManagerProps> = ({
         description: error instanceof Error ? error.message : "Erro ao efetivar matrícula",
         variant: "destructive",
       });
+    } finally {
+      setIsProcessing(false);
+      setProcessingStep('');
     }
   };
 
@@ -126,7 +165,7 @@ const PendingStudentsManager: React.FC<PendingStudentsManagerProps> = ({
   // Exportar dados
   const exportData = () => {
     const csvContent = [
-      ['Nome', 'CPF', 'Núcleo', 'Telefone', 'Email', 'Status'],
+      ['Nome', 'CPF', 'Congregação', 'Telefone', 'Email', 'Status'],
       ...filteredStudents.map(student => [
         student.nome,
         student.cpf,
@@ -211,7 +250,7 @@ const PendingStudentsManager: React.FC<PendingStudentsManagerProps> = ({
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-2 sm:space-y-0">
             <CardTitle className="flex items-center space-x-2">
               <Users className="h-5 w-5" />
-              <span>Alunos Pendentes</span>
+              <span>Matrículas Pendentes</span>
             </CardTitle>
             
             <div className="flex flex-wrap gap-2">
@@ -256,15 +295,15 @@ const PendingStudentsManager: React.FC<PendingStudentsManagerProps> = ({
             </div>
 
             <div>
-              <Label htmlFor="nucleo-filter">Filtrar por Núcleo</Label>
+              <Label htmlFor="nucleo-filter">Filtrar por Congregação</Label>
               <Select value={filterNucleo} onValueChange={setFilterNucleo}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Todos os núcleos" />
+                  <SelectValue placeholder="Todas as congregações" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os núcleos</SelectItem>
-                  {nucleos.map(nucleo => (
-                    <SelectItem key={nucleo} value={nucleo}>
+                  <SelectItem value="todos">Todas as congregações</SelectItem>
+                  {nucleos.map((nucleo, index) => (
+                    <SelectItem key={`nucleo-${nucleo}-${index}`} value={nucleo}>
                       {nucleo}
                     </SelectItem>
                   ))}
@@ -296,70 +335,47 @@ const PendingStudentsManager: React.FC<PendingStudentsManagerProps> = ({
             </div>
           )}
 
-          {/* Loading */}
-          {loading && (
+          {/* Lista Simples de Alunos */}
+          {loading ? (
             <div className="flex justify-center items-center py-8">
               <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-              <span>Carregando alunos pendentes...</span>
+              <span>Carregando alunos...</span>
             </div>
-          )}
-
-          {/* Tabela */}
-          {!loading && (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>CPF</TableHead>
-                    <TableHead>Núcleo</TableHead>
-                    <TableHead>Telefone</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredStudents.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
-                        <div className="flex flex-col items-center space-y-2">
-                          <Users className="h-8 w-8 text-gray-400" />
-                          <p className="text-gray-500">
-                            {students.length === 0 
-                              ? "Nenhum aluno pendente encontrado" 
-                              : "Nenhum aluno corresponde aos filtros"
-                            }
-                          </p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredStudents.map((student) => (
-                      <TableRow key={student.id}>
-                        <TableCell className="font-medium">{student.nome}</TableCell>
-                        <TableCell>{student.cpf}</TableCell>
-                        <TableCell>{student.nucleo || '-'}</TableCell>
-                        <TableCell>{student.telefone || '-'}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{student.status}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end space-x-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openEnrollmentDialog(student)}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Efetivar
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+          ) : (
+            <div className="space-y-3">
+              {filteredStudents.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="flex flex-col items-center space-y-2">
+                    <Users className="h-8 w-8 text-gray-400" />
+                    <p className="text-gray-500">
+                      {students.length === 0 
+                        ? "Nenhum aluno pendente encontrado" 
+                        : "Nenhum aluno corresponde aos filtros"
+                      }
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                filteredStudents.map((student) => (
+                  <div key={student.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="flex-1">
+                      <h3 className="font-medium text-gray-900">{student.nome}</h3>
+                      <p className="text-sm text-gray-600">CPF: {student.cpf}</p>
+                      {student.nucleo && (
+                        <p className="text-sm text-gray-600">Congregação: {student.nucleo}</p>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => openEnrollmentDialog(student)}
+                      className="ml-4 bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      Efetivar
+                    </Button>
+                  </div>
+                ))
+              )}
             </div>
           )}
         </CardContent>
@@ -377,7 +393,7 @@ const PendingStudentsManager: React.FC<PendingStudentsManagerProps> = ({
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-medium">{selectedStudent.nome}</h4>
                 <p className="text-sm text-gray-600">CPF: {selectedStudent.cpf}</p>
-                <p className="text-sm text-gray-600">Núcleo: {selectedStudent.nucleo || 'Não informado'}</p>
+                <p className="text-sm text-gray-600">Congregação: {selectedStudent.nucleo || 'Não informado'}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -391,10 +407,9 @@ const PendingStudentsManager: React.FC<PendingStudentsManagerProps> = ({
                       <SelectValue placeholder="Selecione o ciclo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Ciclo 1">Ciclo 1</SelectItem>
-                      <SelectItem value="Ciclo 2">Ciclo 2</SelectItem>
-                      <SelectItem value="Ciclo 3">Ciclo 3</SelectItem>
-                      <SelectItem value="Ciclo 4">Ciclo 4</SelectItem>
+                      <SelectItem value="1º Ciclo - Formação Básica">1º Ciclo - Formação Básica</SelectItem>
+                      <SelectItem value="2º Ciclo - Médio">2º Ciclo - Médio</SelectItem>
+                      <SelectItem value="3º Ciclo - Avançado">3º Ciclo - Avançado</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -409,9 +424,13 @@ const PendingStudentsManager: React.FC<PendingStudentsManagerProps> = ({
                       <SelectValue placeholder="Selecione o subnúcleo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Subnúcleo A">Subnúcleo A</SelectItem>
-                      <SelectItem value="Subnúcleo B">Subnúcleo B</SelectItem>
-                      <SelectItem value="Subnúcleo C">Subnúcleo C</SelectItem>
+                      <SelectItem value="ARNO 44">ARNO 44</SelectItem>
+                      <SelectItem value="Sede">Sede</SelectItem>
+                      <SelectItem value="Aureny III">Aureny III</SelectItem>
+                      <SelectItem value="Taquarí">Taquarí</SelectItem>
+                      <SelectItem value="Morada do Sol II">Morada do Sol II</SelectItem>
+                      <SelectItem value="Luzimanges">Luzimanges</SelectItem>
+                      <SelectItem value="Colinas - TO">Colinas - TO</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -444,19 +463,44 @@ const PendingStudentsManager: React.FC<PendingStudentsManagerProps> = ({
                 />
               </div>
 
+              {/* Barra de Progresso */}
+              {isProcessing && (
+                <div className="space-y-3 py-4 border-t">
+                  <div className="flex items-center space-x-2">
+                    <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
+                    <span className="text-sm font-medium text-blue-600">{processingStep}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="bg-blue-600 h-2 rounded-full transition-all duration-1000 ease-in-out" 
+                         style={{ width: processingStep.includes('Efetivando') ? '50%' : '100%' }}>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end space-x-2 pt-4">
                 <Button 
                   variant="outline" 
                   onClick={() => setIsEnrollmentDialogOpen(false)}
+                  disabled={isProcessing}
                 >
                   Cancelar
                 </Button>
                 <Button 
                   onClick={handleEnrollStudent}
-                  disabled={!enrollmentForm.ciclo || !enrollmentForm.subnucleo}
+                  disabled={!enrollmentForm.ciclo || !enrollmentForm.subnucleo || isProcessing}
                 >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Efetivar Matrícula
+                  {isProcessing ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Efetivar Matrícula
+                    </>
+                  )}
                 </Button>
               </div>
             </div>

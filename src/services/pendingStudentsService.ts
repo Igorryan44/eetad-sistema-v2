@@ -9,7 +9,7 @@
  * - Otimização de performance
  */
 
-import { supabase } from '@/integrations/supabase/client';
+
 import { useEffect, useState } from 'react';
 import { PENDING_STUDENTS_CONFIG } from '../config/pendingStudentsConfig';
 
@@ -54,18 +54,15 @@ class PendingStudentsService {
                           (now - this.lastFetch) < PENDING_STUDENTS_CONFIG.CACHE_DURATION;
 
       if (cacheIsValid) {
-        console.log('📋 Usando cache de alunos pendentes');
         return this.cache;
       }
 
       // Evitar múltiplas requisições simultâneas
       if (this.isLoading) {
-        console.log('⏳ Aguardando requisição em andamento...');
         return this.cache;
       }
 
       this.isLoading = true;
-      console.log('🔄 Buscando alunos pendentes...');
 
       const students = await this.fetchWithRetry();
       
@@ -76,15 +73,12 @@ class PendingStudentsService {
       // Notificar listeners
       this.notifyListeners(students);
       
-      console.log(`✅ ${students.length} alunos pendentes carregados`);
       return students;
 
     } catch (error) {
-      console.error('❌ Erro ao buscar alunos pendentes:', error);
       
       // Retornar cache se disponível, senão array vazio
       if (this.cache.length > 0) {
-        console.log('📋 Retornando dados do cache devido ao erro');
         return this.cache;
       }
       
@@ -99,44 +93,39 @@ class PendingStudentsService {
    */
   private async fetchWithRetry(retryCount = 0): Promise<PendingStudent[]> {
     try {
-      console.log(`🔄 Tentativa ${retryCount + 1} - Buscando alunos pendentes...`);
       
-      const response = await supabase.functions.invoke('get-pending-students', {
+      // Usar servidor local - nova função para buscar alunos pendentes
+      const response = await fetch('http://localhost:3003/functions/get-pendente-students', {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${PENDING_STUDENTS_CONFIG.SUPABASE_AUTH_TOKEN}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({})
       });
 
-      console.log('📊 Resposta da função:', response);
-
-      if (response.error) {
-        console.error('❌ Erro na resposta:', response.error);
-        throw new Error(`Erro da função: ${response.error.message}`);
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`);
       }
 
-      const students = response.data?.students || [];
-      console.log(`✅ ${students.length} alunos pendentes encontrados`);
+      const students = await response.json();
       
       // Normalizar dados
       const normalizedStudents = students.map((student: any, index: number) => ({
-        id: student.cpf || `temp-${index}`,
+        id: student.cpf || `temp-${Date.now()}-${index}`,
         rowIndex: student.rowIndex || index + 2,
         nome: student.nome || '',
         cpf: student.cpf || '',
         nucleo: student.nucleo || '',
         telefone: student.telefone || '',
         email: student.email || '',
-        timestamp: student.timestamp || '',
-        status: student.status || 'Pendente',
+        timestamp: student.data_cadastro || '',
+        status: student.status || 'pendente',
         lastUpdated: new Date().toISOString()
       }));
 
-      console.log('📋 Dados normalizados:', normalizedStudents);
       return normalizedStudents;
 
     } catch (error) {
-      console.error(`❌ Tentativa ${retryCount + 1} falhou:`, error);
       
       if (retryCount < PENDING_STUDENTS_CONFIG.MAX_RETRIES - 1) {
         await new Promise(resolve => 
@@ -154,30 +143,42 @@ class PendingStudentsService {
    */
   async finalizeEnrollment(enrollmentData: EnrollmentData): Promise<boolean> {
     try {
-      console.log('📝 Efetivando matrícula:', enrollmentData);
 
-      const response = await supabase.functions.invoke('finalize-student-enrollment', {
-        body: {
+
+      // Usar servidor local
+      const response = await fetch('http://localhost:3003/functions/finalize-enrollment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
           ...enrollmentData,
           data: enrollmentData.data || new Date().toLocaleDateString('pt-BR')
-        },
-        headers: {
-          'Authorization': `Bearer ${PENDING_STUDENTS_CONFIG.SUPABASE_AUTH_TOKEN}`,
-          'Content-Type': 'application/json'
-        }
+        })
       });
 
-      if (response.error) {
-        throw new Error(`Erro ao efetivar matrícula: ${response.error.message}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
+        throw new Error(`Erro ao efetivar matrícula: ${errorData.message || response.statusText}`);
       }
 
+      const result = await response.json();
+      
       // Remover aluno do cache local
       this.cache = this.cache.filter(student => student.cpf !== enrollmentData.cpf);
+      
+      // Se o servidor indicar que o dashboard deve ser atualizado, forçar refresh
+      if (result.shouldRefreshDashboard) {
+        // Aguardar um pouco para garantir que os dados foram salvos no Google Sheets
+        setTimeout(async () => {
+          await this.getPendingStudents(true); // Forçar refresh dos dados
+        }, 500);
+      }
       
       // Notificar listeners sobre a mudança
       this.notifyListeners(this.cache);
       
-      console.log('✅ Matrícula efetivada com sucesso');
+
       return true;
 
     } catch (error) {
@@ -241,7 +242,6 @@ class PendingStudentsService {
   clearCache() {
     this.cache = [];
     this.lastFetch = 0;
-    console.log('🧹 Cache limpo');
   }
 
   /**
@@ -262,14 +262,13 @@ class PendingStudentsService {
     
     setInterval(async () => {
       try {
-        console.log('🔄 Sincronização automática iniciada');
         await this.getPendingStudents(true);
       } catch (error) {
         console.error('❌ Erro na sincronização automática:', error);
       }
     }, PENDING_STUDENTS_CONFIG.BACKGROUND_SYNC_INTERVAL || interval);
 
-    console.log(`🔄 Sincronização automática configurada para ${intervalMinutes} minutos`);
+
   }
 }
 
@@ -282,19 +281,13 @@ export const usePendingStudents = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  console.log('🎯 Hook usePendingStudents inicializado');
-
   useEffect(() => {
-    console.log('🔄 useEffect do hook executado');
-    
     // Adicionar listener para atualizações
     const unsubscribe = pendingStudentsService.addListener((newStudents) => {
-      console.log('📢 Listener recebeu novos dados:', newStudents);
       setStudents(newStudents);
     });
     
     // Carregar dados iniciais
-    console.log('📥 Carregando dados iniciais...');
     loadStudents();
     
     return unsubscribe;
@@ -302,14 +295,11 @@ export const usePendingStudents = () => {
 
   const loadStudents = async (forceRefresh = false) => {
     try {
-      console.log(`📥 loadStudents chamado (forceRefresh: ${forceRefresh})`);
       setLoading(true);
       setError(null);
       const data = await pendingStudentsService.getPendingStudents(forceRefresh);
-      console.log('📊 Dados recebidos no hook:', data);
       setStudents(data);
     } catch (err) {
-      console.error('❌ Erro no loadStudents:', err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       setLoading(false);

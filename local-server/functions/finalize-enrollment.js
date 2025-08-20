@@ -62,18 +62,27 @@ router.post('/', async (req, res) => {
       throw new Error('Credenciais do Google não configuradas');
     }
 
-    // 1. Atualizar status na aba "dados pessoais"
+    // 1. Atualizar status na aba "dados pessoais" (coluna Y - índice 24)
     console.log(`📊 Atualizando status na linha ${enrollmentData.rowIndex}...`);
     
-    const statusRange = `${DADOS_PESSOAIS_SHEET}!W${enrollmentData.rowIndex}`;
-    await writeSheetData(GOOGLE_SHEETS_SPREADSHEET_ID, statusRange, [[enrollmentData.status]]);
+    const statusRange = `${DADOS_PESSOAIS_SHEET}!Y${enrollmentData.rowIndex}`;
+    await writeSheetData(GOOGLE_SHEETS_SPREADSHEET_ID, statusRange, [['matriculado']]);
 
     // 2. Buscar dados pessoais do aluno
     console.log(`👤 Buscando dados do aluno na linha ${enrollmentData.rowIndex}...`);
     
-    const studentRange = `${DADOS_PESSOAIS_SHEET}!${enrollmentData.rowIndex}:${enrollmentData.rowIndex}`;
+    const studentRange = `${DADOS_PESSOAIS_SHEET}!A${enrollmentData.rowIndex}:Z${enrollmentData.rowIndex}`;
     const studentData = await readSheetData(GOOGLE_SHEETS_SPREADSHEET_ID, studentRange);
     const studentRow = studentData[0] || [];
+    
+    console.log('📊 Dados do aluno encontrados:', {
+      linha: enrollmentData.rowIndex,
+      dadosCompletos: studentRow.length,
+      nome: studentRow[0] || 'VAZIO',
+      cpf: studentRow[1] || 'VAZIO',
+      telefone: studentRow[2] || 'VAZIO',
+      email: studentRow[3] || 'VAZIO'
+    });
 
     // 3. Adicionar registro na aba "matriculas"
     console.log('📋 Adicionando registro na aba matriculas...');
@@ -86,16 +95,33 @@ router.post('/', async (req, res) => {
       year: 'numeric'
     });
     
+    // O ciclo já vem formatado corretamente do frontend
+    const cicloFormatado = enrollmentData.ciclo;
+    
+    // Buscar nome na coluna E (índice 4) conforme estrutura da planilha
+    const nomeAluno = studentRow[4] || 'Nome não encontrado';
+    
     const matriculaRowData = [
-      studentRow[1] || '', // A - nome
+      nomeAluno, // A - nome (coluna A da aba "dados pessoais")
       enrollmentData.cpf, // B - cpf
-      studentRow[2] || '', // C - núcleo (buscar da aba dados pessoais)
+      '1979', // C - núcleo (sempre 1979 automaticamente)
       enrollmentData.subnucleo, // D - subnucleo
-      enrollmentData.ciclo, // E - ciclo
+      cicloFormatado, // E - ciclo (formatado corretamente)
       currentDate, // F - data
-      enrollmentData.status, // G - status
+      enrollmentData.status, // G - status (selecionado pelo secretário)
       enrollmentData.observacao || '' // H - observacao
     ];
+    
+    console.log('📝 Dados que serão salvos na aba matriculas:', {
+      nome: matriculaRowData[0],
+      cpf: matriculaRowData[1],
+      nucleo: matriculaRowData[2],
+      subnucleo: matriculaRowData[3],
+      ciclo: matriculaRowData[4],
+      data: matriculaRowData[5],
+      status: matriculaRowData[6],
+      observacao: matriculaRowData[7]
+    });
 
     const matriculasRange = `${MATRICULAS_SHEET}!A:H`;
     await appendSheetData(GOOGLE_SHEETS_SPREADSHEET_ID, matriculasRange, [matriculaRowData]);
@@ -105,12 +131,14 @@ router.post('/', async (req, res) => {
     res.json({
       success: true,
       message: 'Matrícula efetivada com sucesso',
+      shouldRefreshDashboard: true, // Sinal para atualizar o dashboard
       data: {
         cpf: enrollmentData.cpf,
         status: enrollmentData.status,
         ciclo: enrollmentData.ciclo,
         subnucleo: enrollmentData.subnucleo,
-        dataEfetivacao: currentDate
+        dataEfetivacao: currentDate,
+        nomeAluno: nomeAluno
       }
     });
 

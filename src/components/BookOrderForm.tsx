@@ -17,7 +17,7 @@ import {
   Loader2,
   CheckCircle
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+
 
 interface BookOrderFormProps {
   student: Student;
@@ -95,23 +95,26 @@ const BookOrderForm = ({ student, onBookOrderComplete, onBack }: BookOrderFormPr
   const availableBooks = selectedCycle ? booksByCycle[selectedCycle as keyof typeof booksByCycle] || [] : [];
   const selectedBookData = availableBooks.find(book => book.id === selectedBook);
 
-  // Busca para verificar pedidos duplicados usando Supabase SDK com logs
+  // Busca para verificar pedidos duplicados usando servidor local
   const checkForDuplicateOrder = async () => {
     try {
-      console.log("[BookOrderForm] Checando duplicidade para:", {
-        cpf: student.cpf,
-        livro: selectedBookData?.name,
-        observacao
-      });
-      const { data, error } = await supabase.functions.invoke("get-book-orders-by-cpf-book-observacao", {
-        body: {
+
+      // Usar servidor local
+      const response = await fetch('http://localhost:3003/functions/get-book-orders-by-cpf-book-observacao', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
           cpf: student.cpf,
           livro: selectedBookData?.name,
           observacao
-        }
+        })
       });
-      if (error) {
-        console.error("[BookOrderForm] Erro em get-book-orders-by-cpf-book-observacao:", error);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
+        console.error("[BookOrderForm] Erro em get-book-orders-by-cpf-book-observacao:", errorData);
         toast({
           title: "Atenção",
           description: "Falha ao consultar pedidos duplicados. Tente novamente.",
@@ -119,7 +122,18 @@ const BookOrderForm = ({ student, onBookOrderComplete, onBack }: BookOrderFormPr
         });
         return false;
       }
-      console.log("[BookOrderForm] Resultado duplicidade:", data);
+      
+      const data = await response.json();
+      if (data.error) {
+        console.error("[BookOrderForm] Erro em get-book-orders-by-cpf-book-observacao:", data.error);
+        toast({
+          title: "Atenção",
+          description: "Falha ao consultar pedidos duplicados. Tente novamente.",
+          variant: "destructive"
+        });
+        return false;
+      }
+
       return Array.isArray(data) && data.length > 0;
     } catch (e) {
       console.error("[BookOrderForm] Erro inesperado ao checar duplicidade:", e);
@@ -147,7 +161,7 @@ const BookOrderForm = ({ student, onBookOrderComplete, onBack }: BookOrderFormPr
     setIsLoading(true);
 
     try {
-      console.log("[BookOrderForm] Submetendo pedido, dados do aluno:", student);
+
 
       // 1. Verificar duplicidade antes de registrar o pedido
       const hasDuplicate = await checkForDuplicateOrder();
@@ -161,20 +175,23 @@ const BookOrderForm = ({ student, onBookOrderComplete, onBack }: BookOrderFormPr
         return;
       }
 
+      // Gerar external_reference primeiro
+      const now = new Date();
+      const timestamp = now.toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', 'T');
+      const cpfClean = student.cpf.replace(/[.-]/g, ''); // Remove pontos e hífens do CPF
+      const externalReference = `${cpfClean}-${timestamp}`;
+
       const bookOrder: BookOrder = {
         studentName: student.nome,
         cpf: student.cpf,
         email: student.email,
         bookName: selectedBookData!.name,
         price: selectedBookData!.price,
-        cycle: cycleNames[selectedCycle as keyof typeof cycleNames]
+        cycle: cycleNames[selectedCycle as keyof typeof cycleNames],
+        external_reference: externalReference
       };
 
       // Salvar pedido no Google Sheets via Edge Function
-      const now = new Date();
-      const timestamp = now.toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', 'T');
-      const cpfClean = student.cpf.replace(/[.-]/g, ''); // Remove pontos e hífens do CPF
-      const externalReference = `${cpfClean}-${timestamp}`;
       
       const orderData = {
         external_reference: externalReference,
@@ -187,9 +204,9 @@ const BookOrderForm = ({ student, onBookOrderComplete, onBack }: BookOrderFormPr
         status_pedido: 'Pendente'
       };
       
-      console.log("[BookOrderForm] Enviando orderData para save-book-order:", orderData);
 
-      const response = await fetch(`https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/save-book-order`, {
+
+      const response = await fetch(`http://localhost:3003/functions/save-book-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -203,9 +220,13 @@ const BookOrderForm = ({ student, onBookOrderComplete, onBack }: BookOrderFormPr
         throw new Error('Erro ao salvar pedido: ' + (data?.error || 'Erro desconhecido'));
       }
 
-      // Notificação via Supabase edge function
-      const notifResp = await supabase.functions.invoke("send-whatsapp-notification", {
-        body: {
+      // Notificação via servidor local
+      const notifResp = await fetch('http://localhost:3003/functions/send-whatsapp-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
           type: 'book_order',
           studentData: {
             nome: student.nome,
@@ -215,13 +236,14 @@ const BookOrderForm = ({ student, onBookOrderComplete, onBack }: BookOrderFormPr
             ciclo: cycleNames[selectedCycle as keyof typeof cycleNames],
             preco: selectedBookData!.price
           }
-        }
+        })
       });
 
-      if (notifResp.error) {
-        console.error("[BookOrderForm] Erro ao enviar notificação WhatsApp:", notifResp.error);
+      if (!notifResp.ok) {
+        const errorData = await notifResp.json().catch(() => ({ message: 'Erro desconhecido' }));
+        console.error("[BookOrderForm] Erro ao enviar notificação WhatsApp:", errorData);
       } else {
-        console.log("[BookOrderForm] Notificação WhatsApp enviada com sucesso");
+
       }
 
       toast({

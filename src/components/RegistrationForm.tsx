@@ -18,6 +18,8 @@ import {
   UserCheck,
   Save,
   Loader2,
+  GraduationCap,
+  Building,
   Home,
   Globe,
   Briefcase,
@@ -45,6 +47,10 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
     escolaridade: "",
     profissao: "",
     cargo: "",
+    congregacao: "",
+    origem_academica: "Nunca estudou teologia",
+    escola_anterior: "",
+    modalidade_anterior: "",
     endereco: "",
     cep: "",
     numero: "",
@@ -55,6 +61,62 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
   });
 
   const [isLoading, setIsLoading] = useState(false);
+
+  // Função de teste para verificar se a API está funcionando
+  const testAPI = async () => {
+    try {
+  
+      const testData = {
+        origem_academica: "Nunca estudou teologia",
+        escola_anterior: "",
+        modalidade_anterior: "",
+        congregacao: "Igreja Teste",
+        nome: "Teste API",
+        rg: "123456789",
+        cpf: "11111111111",
+        telefone: "(11) 99999-9999",
+        email: "teste@api.com",
+        sexo: "Masculino",
+        estado_civil: "Solteiro",
+        data_nascimento: "01/01/1990",
+        uf_nascimento: "SP",
+        escolaridade: "Superior",
+        profissao: "Desenvolvedor",
+        nacionalidade: "Brasileira",
+        cargo_igreja: "Membro",
+        endereco_rua: "Rua Teste",
+        cep: "12345-678",
+        numero: "123",
+        bairro: "Centro",
+        cidade: "São Paulo",
+        uf: "SP"
+      };
+
+      const response = await fetch(`http://localhost:3003/functions/save-student-personal-data`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(testData)
+      });
+
+      const result = await response.json();
+
+      
+      toast({
+        title: "Teste da API",
+        description: result.success ? "API funcionando!" : "Erro na API",
+        variant: result.success ? "default" : "destructive"
+      });
+    } catch (error) {
+      console.error('🧪 [RegistrationForm] Erro no teste:', error);
+      toast({
+        title: "Erro no teste",
+        description: "Falha ao testar API",
+        variant: "destructive"
+      });
+    }
+  };
 
   const estados = [
     { value: "AC", label: "Acre" },
@@ -100,6 +162,10 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
       }
 
       const studentData = {
+        origem_academica: formData.origem_academica,
+        escola_anterior: formData.escola_anterior,
+        modalidade_anterior: formData.modalidade_anterior,
+        congregacao: formData.congregacao,
         nome: formData.nome,
         rg: formData.rg,
         cpf: cpf,
@@ -108,22 +174,22 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
         sexo: formData.sexo,
         estado_civil: formData.estcivil,
         data_nascimento: formData.dtnascimento,
-        cidade_nascimento: formData.cidadenascimento,
         uf_nascimento: formData.ufnascimento,
-        nacionalidade: formData.nacionalidade,
         escolaridade: formData.escolaridade,
         profissao: formData.profissao,
+        nacionalidade: formData.nacionalidade,
         cargo_igreja: formData.cargo,
         endereco_rua: formData.endereco,
         cep: formData.cep,
         numero: formData.numero,
-        complemento: formData.complemento,
         bairro: formData.bairro,
         cidade: formData.cidade_alu,
         uf: formData.uf
       };
 
-      const response = await fetch(`https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/save-student-personal-data`, {
+
+
+      const response = await fetch(`http://localhost:3003/functions/save-student-personal-data`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -132,11 +198,18 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
         body: JSON.stringify(studentData)
       });
 
+
+
       if (!response.ok) {
+        const errorText = await response.text();
+
         throw new Error('Erro ao salvar dados');
       }
 
-      await fetch(`https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/send-whatsapp-notification`, {
+      const result = await response.json();
+
+
+      await fetch(`http://localhost:3003/functions/send-whatsapp-notification`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -148,7 +221,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
         })
       });
 
-      await fetch(`https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/send-whatsapp-notification`, {
+      await fetch(`http://localhost:3003/functions/send-whatsapp-notification`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -161,7 +234,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
       });
 
       try {
-        await fetch(`https://umkizxftwrwqiiahjbrr.supabase.co/functions/v1/send-email-notification`, {
+        await fetch(`http://localhost:3003/functions/send-email-notification`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -249,6 +322,66 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
         
         <CardContent className="p-4 md:p-6 lg:p-8">
           <form onSubmit={handleSubmit} className="space-y-6 md:space-y-8">
+            {/* Dados Acadêmicos */}
+            <div className="space-y-4 md:space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 md:gap-3 mb-4 md:mb-6">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <GraduationCap className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                </div>
+                <h3 className="text-lg md:text-xl font-bold text-gray-800">Dados Acadêmicos</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <div className="space-y-2 md:space-y-3">
+                  <Label className="text-sm md:text-base font-semibold text-gray-700 flex items-center gap-2">
+                    <GraduationCap className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
+                    Origem Acadêmica
+                  </Label>
+                  <Select value={formData.origem_academica} onValueChange={(value) => handleInputChange("origem_academica", value)}>
+                    <SelectTrigger className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black">
+                      <SelectValue placeholder="-- Selecione --" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Nunca estudou teologia">Nunca estudou teologia</SelectItem>
+                      <SelectItem value="Estudou teologia">Estudou teologia</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {formData.origem_academica === "Estudou teologia" && (
+                  <>
+                    <div className="space-y-2 md:space-y-3">
+                      <Label htmlFor="escola_anterior" className="text-sm md:text-base font-semibold text-gray-700 flex items-center gap-2">
+                        <Building className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
+                        Escola Anterior
+                      </Label>
+                      <Input
+                        id="escola_anterior"
+                        placeholder="Nome da escola/instituição anterior"
+                        value={formData.escola_anterior}
+                        onChange={(e) => handleInputChange("escola_anterior", e.target.value)}
+                        className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
+                      />
+                    </div>
+
+                    <div className="space-y-2 md:space-y-3 md:col-span-2">
+                      <Label htmlFor="modalidade_anterior" className="text-sm md:text-base font-semibold text-gray-700 flex items-center gap-2">
+                        <BookOpen className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
+                        Modalidade Anterior
+                      </Label>
+                      <Input
+                        id="modalidade_anterior"
+                        placeholder="Ex: Presencial, EAD, Semipresencial, etc."
+                        value={formData.modalidade_anterior}
+                        onChange={(e) => handleInputChange("modalidade_anterior", e.target.value)}
+                        className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
             {/* Dados Pessoais */}
             <div className="space-y-4 md:space-y-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 md:gap-3 mb-4 md:mb-6">
@@ -269,7 +402,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     placeholder="Digite seu nome completo"
                     value={formData.nome}
                     onChange={(e) => handleInputChange("nome", e.target.value)}
-                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
                     required
                   />
                 </div>
@@ -285,7 +418,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     placeholder="seu@email.com"
                     value={formData.email}
                     onChange={(e) => handleInputChange("email", e.target.value)}
-                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
                     required
                   />
                 </div>
@@ -300,7 +433,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     placeholder="Digite seu RG"
                     value={formData.rg}
                     onChange={(e) => handleInputChange("rg", e.target.value)}
-                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
                   />
                 </div>
 
@@ -314,7 +447,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     placeholder="(DD) 99999-9999"
                     value={formData.fone}
                     onChange={(e) => handleInputChange("fone", e.target.value)}
-                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
                     required
                   />
                 </div>
@@ -325,7 +458,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     Sexo
                   </Label>
                   <Select value={formData.sexo} onValueChange={(value) => handleInputChange("sexo", value)}>
-                    <SelectTrigger className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl">
+                    <SelectTrigger className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black">
                       <SelectValue placeholder="-- Selecione --" />
                     </SelectTrigger>
                     <SelectContent>
@@ -345,7 +478,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     type="date"
                     value={formData.dtnascimento}
                     onChange={(e) => handleInputChange("dtnascimento", e.target.value)}
-                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
                   />
                 </div>
 
@@ -355,7 +488,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     Estado Civil
                   </Label>
                   <Select value={formData.estcivil} onValueChange={(value) => handleInputChange("estcivil", value)}>
-                    <SelectTrigger className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl">
+                    <SelectTrigger className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black">
                       <SelectValue placeholder="-- Selecione --" />
                     </SelectTrigger>
                     <SelectContent>
@@ -377,7 +510,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     placeholder="Digite a cidade"
                     value={formData.cidadenascimento}
                     onChange={(e) => handleInputChange("cidadenascimento", e.target.value)}
-                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
                   />
                 </div>
 
@@ -387,7 +520,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     UF de Nascimento
                   </Label>
                   <Select value={formData.ufnascimento} onValueChange={(value) => handleInputChange("ufnascimento", value)}>
-                    <SelectTrigger className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl">
+                    <SelectTrigger className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black">
                       <SelectValue placeholder="-- Selecione --" />
                     </SelectTrigger>
                     <SelectContent>
@@ -410,7 +543,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     placeholder="Digite sua nacionalidade"
                     value={formData.nacionalidade}
                     onChange={(e) => handleInputChange("nacionalidade", e.target.value)}
-                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
                   />
                 </div>
 
@@ -420,7 +553,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     Escolaridade
                   </Label>
                   <Select value={formData.escolaridade} onValueChange={(value) => handleInputChange("escolaridade", value)}>
-                    <SelectTrigger className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl">
+                    <SelectTrigger className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black">
                       <SelectValue placeholder="-- Selecione --" />
                     </SelectTrigger>
                     <SelectContent>
@@ -442,7 +575,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     placeholder="Digite sua profissão"
                     value={formData.profissao}
                     onChange={(e) => handleInputChange("profissao", e.target.value)}
-                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
                   />
                 </div>
 
@@ -456,7 +589,21 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     placeholder="Digite seu cargo na igreja"
                     value={formData.cargo}
                     onChange={(e) => handleInputChange("cargo", e.target.value)}
-                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
+                  />
+                </div>
+
+                <div className="space-y-2 md:space-y-3">
+                  <Label htmlFor="congregacao" className="text-sm md:text-base font-semibold text-gray-700 flex items-center gap-2">
+                    <Star className="h-3 w-3 md:h-4 md:w-4 text-blue-600" />
+                    Congregação
+                  </Label>
+                  <Input
+                    id="congregacao"
+                    placeholder="Digite sua congregação"
+                    value={formData.congregacao}
+                    onChange={(e) => handleInputChange("congregacao", e.target.value)}
+                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
                   />
                 </div>
               </div>
@@ -482,7 +629,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     placeholder="Digite o endereço"
                     value={formData.endereco}
                     onChange={(e) => handleInputChange("endereco", e.target.value)}
-                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
                   />
                 </div>
 
@@ -496,7 +643,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     placeholder="00000-000"
                     value={formData.cep}
                     onChange={(e) => handleInputChange("cep", e.target.value)}
-                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
                   />
                 </div>
 
@@ -507,7 +654,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     placeholder="123"
                     value={formData.numero}
                     onChange={(e) => handleInputChange("numero", e.target.value)}
-                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
                   />
                 </div>
 
@@ -518,7 +665,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     placeholder="Apto, casa, etc."
                     value={formData.complemento}
                     onChange={(e) => handleInputChange("complemento", e.target.value)}
-                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
                   />
                 </div>
 
@@ -529,7 +676,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     placeholder="Digite o bairro"
                     value={formData.bairro}
                     onChange={(e) => handleInputChange("bairro", e.target.value)}
-                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
                   />
                 </div>
 
@@ -540,14 +687,14 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
                     placeholder="Digite a cidade"
                     value={formData.cidade_alu}
                     onChange={(e) => handleInputChange("cidade_alu", e.target.value)}
-                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+                    className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black"
                   />
                 </div>
 
                 <div className="space-y-2 md:space-y-3">
                   <Label className="text-sm md:text-base font-semibold text-gray-700">UF</Label>
                   <Select value={formData.uf} onValueChange={(value) => handleInputChange("uf", value)}>
-                    <SelectTrigger className="h-10 md:h-12 border-2 border-gray-200 focus:border-blue-500 rounded-xl">
+                    <SelectTrigger className="h-10 md:h-12 border-2 border-gray-200 focus:border-gray-400 rounded-xl bg-white text-black">
                       <SelectValue placeholder="-- Selecione --" />
                     </SelectTrigger>
                     <SelectContent>
@@ -562,25 +709,40 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
               </div>
             </div>
 
-            {/* Botão de envio */}
-            <div className="flex justify-center pt-6">
-              <Button 
-                type="submit" 
-                disabled={isLoading}
-                className="w-full md:w-auto bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Enviar Solicitação
-                  </>
-                )}
-              </Button>
+            {/* Botões de teste e envio */}
+            <div className="flex flex-col gap-4 pt-6">
+              {/* Botão de teste da API */}
+              <div className="flex justify-center">
+                <Button 
+                  type="button"
+                  onClick={testAPI}
+                  variant="outline"
+                  className="w-full md:w-auto border-2 border-orange-500 text-orange-600 hover:bg-orange-50 font-bold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                >
+                  🧪 Testar API
+                </Button>
+              </div>
+              
+              {/* Botão de envio principal */}
+              <div className="flex justify-center">
+                <Button 
+                  type="submit" 
+                  disabled={isLoading}
+                  className="w-full md:w-auto bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Enviar Solicitação
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </form>
         </CardContent>
