@@ -95,7 +95,7 @@ class PendingStudentsService {
     try {
       
       // Usar servidor local - nova função para buscar alunos pendentes
-      const response = await fetch('http://localhost:3003/functions/get-pendente-students', {
+      const response = await fetch((((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003') + '/functions/get-pendente-students', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -146,7 +146,7 @@ class PendingStudentsService {
 
 
       // Usar servidor local
-      const response = await fetch('http://localhost:3003/functions/finalize-enrollment', {
+      const response = await fetch((((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003') + '/functions/finalize-enrollment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

@@ -30,7 +30,7 @@ interface UseStudentBooksReturn {
   getBookOrdersByCpf: (cpf: string, book: string, observacao: string) => Promise<any[]>;
 }
 
-const API_BASE_URL = 'http://localhost:3003';
+const API_BASE_URL = ((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003';
 
 export const getStudentBooks = async (cpf: string): Promise<StudentBook[]> => {
   try {

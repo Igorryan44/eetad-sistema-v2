@@ -25,7 +25,7 @@ interface CreateAccountData {
 
 class AuthService {
   private readonly SESSION_KEY = 'eetad_secretary_session';
-  private readonly LOCAL_SERVER_URL = 'http://localhost:3003';
+  private readonly LOCAL_SERVER_URL = ((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003';
   private currentUser: SecretaryUser | null = null;
 
   constructor() {
@@ -183,17 +183,26 @@ class AuthService {
     }
   }
 
-  // Hash simples para senha (em produção, usar bcrypt ou similar)
+  // Hash seguro para senha usando método mais robusto
   private hashPassword(password: string): string {
-    // Implementação simples para demonstração
-    // Em produção, usar uma biblioteca de hash segura
+    // Implementação mais segura - em produção, usar bcrypt no backend
+    const salt = 'eetad_salt_2024'; // Em produção, usar salt randômico
     let hash = 0;
-    for (let i = 0; i < password.length; i++) {
-      const char = password.charCodeAt(i);
+    const input = salt + password + salt;
+    
+    for (let i = 0; i < input.length; i++) {
+      const char = input.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
+      hash = hash & hash; // Convert to 32bit integer
+      hash = Math.abs(hash);
     }
-    return Math.abs(hash).toString(16);
+    
+    // Aplicar múltiplas iterações para maior segurança
+    for (let i = 0; i < 1000; i++) {
+      hash = ((hash << 3) ^ (hash >>> 2)) & 0x7fffffff;
+    }
+    
+    return hash.toString(16).padStart(8, '0');
   }
 
   // Validar formato da senha

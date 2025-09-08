@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { Student } from "@/pages/Index";
-import { Search, UserCheck, Loader2, Shield, X } from "lucide-react";
+import { Search, UserCheck, Loader2, Shield, X, Wifi, WifiOff, RefreshCw } from "lucide-react";
+import { apiRequest, checkBackendHealth, getConnectionStatus } from "@/services/api";
 
 interface CPFVerificationFormProps {
   onCPFVerified: (student: Student) => void;
@@ -16,6 +17,8 @@ interface CPFVerificationFormProps {
 const CPFVerificationForm = ({ onCPFVerified, onCancel }: CPFVerificationFormProps) => {
   const [cpf, setCpf] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   const cpfInputRef = useRef<HTMLInputElement>(null);
 
   // Foco automático no campo CPF quando o componente é montado
@@ -23,7 +26,57 @@ const CPFVerificationForm = ({ onCPFVerified, onCancel }: CPFVerificationFormPro
     if (cpfInputRef.current) {
       cpfInputRef.current.focus();
     }
+    
+    // Check initial connection status
+    checkInitialConnection();
   }, []);
+
+  const checkInitialConnection = async () => {
+    try {
+      const healthy = await checkBackendHealth();
+      setIsConnected(healthy);
+      
+      if (!healthy) {
+        toast({
+          title: "⚠️ Servidor Offline",
+          description: "O servidor backend não está acessível. Clique em 'Verificar Conexão' para tentar novamente.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      setIsConnected(false);
+    }
+  };
+
+  const handleConnectionCheck = async () => {
+    setIsCheckingConnection(true);
+    try {
+      const healthy = await checkBackendHealth();
+      setIsConnected(healthy);
+      
+      if (healthy) {
+        toast({
+          title: "✅ Conexão Restaurada",
+          description: "Servidor backend está online e funcionando."
+        });
+      } else {
+        toast({
+          title: "❌ Servidor Offline",
+          description: "Não foi possível conectar ao servidor. Verifique se está rodando na porta 3003.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      setIsConnected(false);
+      toast({
+        title: "❌ Erro de Conexão",
+        description: "Falha ao verificar status do servidor.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCheckingConnection(false);
+    }
+  };
 
   const formatCPF = (value: string) => {
     const cleaned = value.replace(/\D/g, '');
@@ -61,20 +114,18 @@ const CPFVerificationForm = ({ onCPFVerified, onCancel }: CPFVerificationFormPro
 
   const consultarCPFNoGoogleSheets = async (cpf: string): Promise<Student> => {
     try {
-      // Consultar a planilha Google Sheets via servidor local
-      const response = await fetch(`http://localhost:3003/functions/get-student-personal-data`, {
+      console.log('🔍 Consultando CPF:', cpf);
+      
+      // Make request using the robust API service
+      const data = await apiRequest('/functions/get-student-personal-data', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ cpf })
       });
-
-      if (!response.ok) {
-        throw new Error('Erro ao consultar CPF');
-      }
-
-      const data = await response.json();
+      
+      console.log('📋 Resposta da API:', data);
       
       if (data.found) {
         // CPF encontrado na planilha
@@ -94,8 +145,21 @@ const CPFVerificationForm = ({ onCPFVerified, onCancel }: CPFVerificationFormPro
         };
       }
     } catch (error) {
-      console.error('Erro ao consultar CPF:', error);
-      throw error;
+      console.error('❌ Erro ao consultar CPF:', error);
+      
+      // Update connection status
+      setIsConnected(false);
+      
+      // Provide detailed error information
+      if (error instanceof Error) {
+        if (error.message.includes('server is not accessible') || 
+            error.message.includes('Failed to connect')) {
+          throw new Error('Servidor backend não está disponível. Verifique se o servidor local está rodando na porta 3003.');
+        }
+        throw error;
+      }
+      
+      throw new Error('Erro desconhecido ao consultar CPF');
     }
   };
 
@@ -111,10 +175,23 @@ const CPFVerificationForm = ({ onCPFVerified, onCancel }: CPFVerificationFormPro
       return;
     }
 
+    // Check connection before submitting
+    if (!isConnected) {
+      toast({
+        title: "⚠️ Servidor Offline",
+        description: "Verifique a conexão com o servidor antes de continuar.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsLoading(true);
     
     try {
       const student = await consultarCPFNoGoogleSheets(cpf);
+      
+      // Update connection status on success
+      setIsConnected(true);
       
       if (student.registered) {
         toast({
@@ -130,9 +207,14 @@ const CPFVerificationForm = ({ onCPFVerified, onCancel }: CPFVerificationFormPro
       
       onCPFVerified(student);
     } catch (error) {
+      // Update connection status on failure
+      setIsConnected(false);
+      
+      const errorMessage = error instanceof Error ? error.message : "Erro ao verificar CPF. Tente novamente.";
+      
       toast({
         title: "Erro",
-        description: "Erro ao verificar CPF. Tente novamente.",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -176,6 +258,43 @@ const CPFVerificationForm = ({ onCPFVerified, onCancel }: CPFVerificationFormPro
         </CardHeader>
         
         <CardContent className="p-4 md:p-6 lg:p-8">
+          {/* Connection Status Indicator */}
+          <div className="mb-4 md:mb-6 flex items-center justify-between p-3 md:p-4 bg-gray-50 rounded-xl border">
+            <div className="flex items-center gap-2 md:gap-3">
+              {isConnected ? (
+                <Wifi className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
+              ) : (
+                <WifiOff className="h-4 w-4 md:h-5 md:w-5 text-red-600" />
+              )}
+              <span className={`text-sm md:text-base font-medium ${
+                isConnected ? 'text-green-700' : 'text-red-700'
+              }`}>
+                {isConnected ? 'Servidor Online' : 'Servidor Offline'}
+              </span>
+            </div>
+            
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleConnectionCheck}
+              disabled={isCheckingConnection}
+              className="h-8 md:h-9 px-2 md:px-3 text-xs md:text-sm"
+            >
+              {isCheckingConnection ? (
+                <>
+                  <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin mr-1" />
+                  Verificando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                  Verificar Conexão
+                </>
+              )}
+            </Button>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             <div className="space-y-2 md:space-y-3">
               <Label htmlFor="cpf" className="text-base md:text-lg font-semibold text-gray-700 flex items-center gap-2">

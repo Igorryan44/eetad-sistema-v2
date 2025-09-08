@@ -84,7 +84,7 @@ class ApprovedStudentsService {
    */
   private async fetchWithRetry(retryCount = 0): Promise<ApprovedStudent[]> {
       try {
-        const response = await fetch('http://localhost:3003/functions/get-aprovado-students', {
+        const response = await fetch((((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003') + '/functions/get-aprovado-students', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

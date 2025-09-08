@@ -23,7 +23,7 @@ interface UseChatbotReturn {
   clearChat: () => void;
 }
 
-const API_BASE_URL = 'http://localhost:3003';
+const API_BASE_URL = ((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003';
 
 export const sendChatbotMessage = async (message: string, context?: any): Promise<ChatbotResponse> => {
   try {

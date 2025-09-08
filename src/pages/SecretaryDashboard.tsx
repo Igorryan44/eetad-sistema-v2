@@ -293,7 +293,7 @@ const SecretaryDashboard = () => {
                     Gerenciar Usuários
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-4xl max-h-[85vh]">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                       <Shield className="h-5 w-5" />

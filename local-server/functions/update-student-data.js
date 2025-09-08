@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express';
-import { readSheetData, appendSheetData, writeSheetData } from '../utils/google-auth.js';
+import { readSheetDataWithRetry, appendSheetData, writeSheetData } from '../utils/google-auth.js';
 import { corsMiddleware } from '../utils/cors.js';
 
 const router = Router();
@@ -37,7 +37,7 @@ router.post('/', async (req, res) => {
         console.log('💾 [update-student-data] Atualizando dados pessoais...');
         
         // Ler dados atuais da planilha "dados pessoais"
-        const personalRows = await readSheetData(spreadsheetId, 'dados pessoais');
+        const personalRows = await readSheetDataWithRetry(spreadsheetId, 'dados pessoais');
         
         if (personalRows.length > 0) {
           const cpfClean = cpf.replace(/\D/g, '');
@@ -103,7 +103,7 @@ router.post('/', async (req, res) => {
         console.log('💾 [update-student-data] Atualizando dados de matrícula...');
         
         // Ler dados atuais da planilha "matriculas"
-        const enrollmentRows = await readSheetData(spreadsheetId, 'matriculas');
+        const enrollmentRows = await readSheetDataWithRetry(spreadsheetId, 'matriculas');
         
         if (enrollmentRows.length > 0) {
           const cpfClean = cpf.replace(/\D/g, '');

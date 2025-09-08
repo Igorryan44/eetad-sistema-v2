@@ -15,7 +15,7 @@ export const PENDING_STUDENTS_CONFIG = {
   
   // API settings
   LOCAL_FUNCTION_NAME: 'get-pendente-students',
-  LOCAL_SERVER_URL: 'http://localhost:3003',
+  LOCAL_SERVER_URL: ((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003',
   
   // Error messages
   ERROR_MESSAGES: {

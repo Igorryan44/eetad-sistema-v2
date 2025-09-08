@@ -30,7 +30,7 @@ cp ../.env.local.example ../.env.local
 npm start
 ```
 
-Servidor disponível em: `http://localhost:3001`
+Servidor disponível em: `http://localhost:${PORT || 3003}` (padrão 3003)
 
 ## 📋 Funções Disponíveis
 
@@ -67,12 +67,12 @@ npm test
 
 ### Testar Função Específica
 ```bash
-curl http://localhost:3001/finalize-enrollment/health
+curl http://localhost:3003/functions/finalize-enrollment/health
 ```
 
 ### Testar Health Check Geral
 ```bash
-curl http://localhost:3001/health
+curl http://localhost:3003/health
 ```
 
 ## 📁 Estrutura
@@ -108,7 +108,7 @@ local-server/
 
 **Desenvolvimento:**
 ```javascript
-const API_BASE_URL = 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3003';
 ```
 
 **Produção:**
@@ -134,9 +134,15 @@ const response = await fetch(`${API_BASE_URL}/finalize-enrollment`, {
 ## 🐛 Troubleshooting
 
 ### Servidor não inicia
-1. Verificar se a porta 3001 está livre
+1. Verificar se a porta 3003 está livre
 2. Verificar se as dependências estão instaladas: `npm install`
-3. Verificar arquivo `.env.local`
+3. Verificar arquivo `.env` em `local-server`
+4. Variáveis suportadas:
+   - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+   - `GOOGLE_PRIVATE_KEY` (com quebras de linha reais ou `\n`)
+   - `GOOGLE_SHEETS_SPREADSHEET_ID`
+   - `CORS_ORIGINS` (lista separada por vírgulas)
+   - `LOCAL_SERVER_PORT` (porta do servidor)
 
 ### Credenciais do Google inválidas
 1. Executar: `npm run setup-credentials`

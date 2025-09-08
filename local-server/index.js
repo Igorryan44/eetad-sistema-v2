@@ -77,8 +77,21 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 const app = express();
 const PORT = process.env.LOCAL_SERVER_PORT || 3003;
 
-// Middleware de segurança
-app.use(helmet());
+// Middleware de segurança com configurações mais permissivas para desenvolvimento
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: ["'self'", "http://localhost:*", "ws://localhost:*"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      fontSrc: ["'self'", "data:"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
 // Rate limiting - configuração mais permissiva para desenvolvimento
 const limiter = rateLimit({
@@ -89,18 +102,20 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // CORS
+const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+const defaultOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'http://127.0.0.1:3002',
+  'http://127.0.0.1:5173',
+  'https://eetad-sistema-v2.vercel.app'
+];
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3002',
-    'http://localhost:5173',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:3001',
-    'http://127.0.0.1:3002',
-    'http://127.0.0.1:5173',
-    'https://eetad-sistema-v2.vercel.app'
-  ],
+  origin: allowedOrigins.length ? allowedOrigins : defaultOrigins,
   credentials: true
 }));
 
@@ -115,14 +130,56 @@ app.use((req, res, next) => {
   next();
 });
 
-// Rota de health check
-app.get('/health', (req, res) => {
-  res.json({
+// Rota de health check aprimorada
+app.get('/health', async (req, res) => {
+  const healthStatus = {
     status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
-    version: '1.0.0'
+    version: '1.0.0',
+    services: {
+      googleSheets: 'unknown',
+      database: 'operational'
+    },
+    memory: {
+      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
+    }
+  };
+
+  // Test Google Sheets connection
+  try {
+    const { readSheetDataWithRetry } = await import('./utils/google-auth.js');
+    const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+    
+    if (SPREADSHEET_ID) {
+      await readSheetDataWithRetry(SPREADSHEET_ID, "'dados pessoais'!A1:A1", 1);
+      healthStatus.services.googleSheets = 'connected';
+    } else {
+      healthStatus.services.googleSheets = 'not_configured';
+    }
+  } catch (error) {
+    healthStatus.services.googleSheets = 'error';
+    healthStatus.services.googleSheetsError = error.message;
+  }
+
+  // Determine overall status
+  const isHealthy = 
+    healthStatus.services.googleSheets === 'connected' ||
+    healthStatus.services.googleSheets === 'not_configured';
+  
+  const statusCode = isHealthy ? 200 : 503;
+  healthStatus.status = isHealthy ? 'ok' : 'degraded';
+
+  res.status(statusCode).json(healthStatus);
+});
+
+// Quick health check endpoint
+app.get('/ping', (req, res) => {
+  res.json({ 
+    status: 'pong', 
+    timestamp: new Date().toISOString() 
   });
 });
 

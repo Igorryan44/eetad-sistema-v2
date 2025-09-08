@@ -41,11 +41,13 @@ router.post('/', async (req, res) => {
         GOOGLE_SERVICE_ACCOUNT_EMAIL.includes('desenvolvimento') || 
         GOOGLE_PRIVATE_KEY.includes('desenvolvimento')) {
       
-      console.log('⚠️ Credenciais do Google não configuradas - retornando array vazio');
+      console.log('⚠️ Credenciais do Google não configuradas - retornando resposta de erro estruturada');
       
       if (isDebugRequest) {
         const debugInfo = {
+          success: false,
           pendingEnrollments: [],
+          error: 'Credenciais não configuradas',
           debug: {
             error: 'Credenciais não configuradas',
             GOOGLE_SERVICE_ACCOUNT_EMAIL: GOOGLE_SERVICE_ACCOUNT_EMAIL ? `Configurado (${GOOGLE_SERVICE_ACCOUNT_EMAIL.substring(0, 20)}...)` : 'NÃO configurado',
@@ -59,15 +61,19 @@ router.post('/', async (req, res) => {
           }
         };
         
-        return res.json(debugInfo);
+        return res.status(503).json(debugInfo);
       }
       
-      return res.json([]);
+      return res.status(503).json({
+        success: false,
+        pendingEnrollments: [],
+        error: 'Serviço temporariamente indisponível - credenciais não configuradas'
+      });
     }
 
     // Buscar dados da aba "dados pessoais"
     console.log('📊 Buscando dados da aba "dados pessoais"...');
-    const dadosPessoaisRows = await readSheetData(GOOGLE_SHEETS_SPREADSHEET_ID, DADOS_PESSOAIS_SHEET);
+    const dadosPessoaisRows = await readSheetDataWithRetry(GOOGLE_SHEETS_SPREADSHEET_ID, DADOS_PESSOAIS_SHEET);
 
     // DEBUG: Mostrar estrutura dos dados pessoais
     console.log(`📊 DEBUG - Dados pessoais: ${dadosPessoaisRows.length} linhas`);
@@ -83,7 +89,7 @@ router.post('/', async (req, res) => {
 
     // Buscar dados da aba "matriculas"
     console.log('📚 Buscando dados da aba "matriculas"...');
-    const matriculasRows = await readSheetData(GOOGLE_SHEETS_SPREADSHEET_ID, MATRICULAS_SHEET);
+    const matriculasRows = await readSheetDataWithRetry(GOOGLE_SHEETS_SPREADSHEET_ID, MATRICULAS_SHEET);
 
     // DEBUG: Mostrar estrutura das matrículas
     console.log(`📚 DEBUG - Matrículas: ${matriculasRows.length} linhas`);

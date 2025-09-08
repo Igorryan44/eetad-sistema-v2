@@ -10,7 +10,7 @@ type EnrolledStudent = {
   dataMatricula?: string;
 };
 
-const API_BASE_URL = 'http://localhost:3003';
+const API_BASE_URL = ((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003';
 
 // Hook para gerenciar alunos matriculados
 export const useEnrolledStudents = () => {

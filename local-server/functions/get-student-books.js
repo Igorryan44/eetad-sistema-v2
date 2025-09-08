@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express';
-import { readSheetData } from '../utils/google-auth.js';
+import { readSheetDataWithRetry } from '../utils/google-auth.js';
 import { corsMiddleware } from '../utils/cors.js';
 
 const router = Router();
@@ -29,7 +29,7 @@ router.post('/', async (req, res) => {
     }
 
     // Carregar dados da aba "pedidos" (onde ficam os livros)
-    const rows = await readSheetData(spreadsheetId, 'pedidos');
+    const rows = await readSheetDataWithRetry(spreadsheetId, 'pedidos');
     
     if (rows.length === 0) {
       console.log('📚 [get-student-books] Nenhum pedido encontrado na planilha');

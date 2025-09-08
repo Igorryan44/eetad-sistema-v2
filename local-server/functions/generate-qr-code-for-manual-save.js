@@ -1,6 +1,7 @@
 import express from 'express';
 import { corsMiddleware } from '../utils/cors.js';
 import QRCode from 'qrcode';
+import { createStaticPix, hasError } from 'pix-utils';
 
 const router = express.Router();
 router.use(corsMiddleware);
@@ -26,32 +27,35 @@ router.post('/', async (req, res) => {
     console.log(`💰 Valor: R$ ${VALOR_PIX},00`);
     console.log(`🔑 Chave PIX: ${CHAVE_PIX}`);
 
-    // Gerar código PIX
-    const pixPayload = `00020126800014br.gov.bcb.pix0${(CHAVE_PIX.length + 4).toString().padStart(2, '0')}${CHAVE_PIX}02${(37 + cpfLimpo.length).toString().padStart(2, '0')}Pagamento de livro - CPF: ${cpfLimpo}520400005303986540${VALOR_PIX.toFixed(2)}5802BR5905EETAD6009SAO PAULO62070503***6304`;
+    // Usar biblioteca pix-utils com configuração ultra-simples
+    const pixObject = createStaticPix({
+      merchantName: 'EETAD',
+      merchantCity: 'SAO PAULO',
+      pixKey: CHAVE_PIX,
+      transactionAmount: VALOR_PIX
+      // Sem informações adicionais para máxima compatibilidade
+    });
     
-    // Calcular CRC16 para o código PIX
-    function calculateCRC16(payload) {
-      const polynomial = 0x1021;
-      let crc = 0xFFFF;
-      
-      for (let i = 0; i < payload.length; i++) {
-        crc ^= (payload.charCodeAt(i) << 8);
-        for (let j = 0; j < 8; j++) {
-          if (crc & 0x8000) {
-            crc = (crc << 1) ^ polynomial;
-          } else {
-            crc <<= 1;
-          }
-          crc &= 0xFFFF;
-        }
-      }
-      
-      return crc.toString(16).toUpperCase().padStart(4, '0');
+    if (hasError(pixObject)) {
+      console.error('❌ Erro na geração do PIX:', pixObject);
+      throw new Error('Erro ao gerar PIX: ' + pixObject.error);
     }
     
-    const crc = calculateCRC16(pixPayload);
-    const pixCode = pixPayload + crc;
+    // Converter para string BR Code
+    const pixCode = pixObject.toBRCode();
     
+    // Validações de segurança
+    if (!pixCode || pixCode.length < 50) {
+      throw new Error('Código PIX inválido ou muito curto');
+    }
+    
+    if (!pixCode.includes(CHAVE_PIX)) {
+      throw new Error('Chave PIX não encontrada no código gerado');
+    }
+    
+    console.log(`📋 Código PIX ultra-simples: ${pixCode.length} caracteres`);
+    console.log(`🔍 Código completo: ${pixCode}`);
+
     console.log(`📱 Gerando QR Code...`);
     
     // Gerar QR Code em Base64

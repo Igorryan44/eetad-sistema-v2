@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { Student } from "@/pages/Index";
+import { apiRequest } from "@/services/api";
 import { 
   ArrowLeft, 
   User, 
@@ -62,61 +63,7 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
 
   const [isLoading, setIsLoading] = useState(false);
 
-  // Função de teste para verificar se a API está funcionando
-  const testAPI = async () => {
-    try {
-  
-      const testData = {
-        origem_academica: "Nunca estudou teologia",
-        escola_anterior: "",
-        modalidade_anterior: "",
-        congregacao: "Igreja Teste",
-        nome: "Teste API",
-        rg: "123456789",
-        cpf: "11111111111",
-        telefone: "(11) 99999-9999",
-        email: "teste@api.com",
-        sexo: "Masculino",
-        estado_civil: "Solteiro",
-        data_nascimento: "01/01/1990",
-        uf_nascimento: "SP",
-        escolaridade: "Superior",
-        profissao: "Desenvolvedor",
-        nacionalidade: "Brasileira",
-        cargo_igreja: "Membro",
-        endereco_rua: "Rua Teste",
-        cep: "12345-678",
-        numero: "123",
-        bairro: "Centro",
-        cidade: "São Paulo",
-        uf: "SP"
-      };
 
-      const response = await fetch(`http://localhost:3003/functions/save-student-personal-data`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(testData)
-      });
-
-      const result = await response.json();
-
-      
-      toast({
-        title: "Teste da API",
-        description: result.success ? "API funcionando!" : "Erro na API",
-        variant: result.success ? "default" : "destructive"
-      });
-    } catch (error) {
-      console.error('🧪 [RegistrationForm] Erro no teste:', error);
-      toast({
-        title: "Erro no teste",
-        description: "Falha ao testar API",
-        variant: "destructive"
-      });
-    }
-  };
 
   const estados = [
     { value: "AC", label: "Acre" },
@@ -189,44 +136,22 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
 
 
 
-      const response = await fetch(`http://localhost:3003/functions/save-student-personal-data`, {
+      const response = await apiRequest('/functions/save-student-personal-data', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
-        },
         body: JSON.stringify(studentData)
       });
 
 
-
-      if (!response.ok) {
-        const errorText = await response.text();
-
-        throw new Error('Erro ao salvar dados');
-      }
-
-      const result = await response.json();
-
-
-      await fetch(`http://localhost:3003/functions/send-whatsapp-notification`, {
+      await apiRequest('/functions/send-whatsapp-notification', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
-        },
         body: JSON.stringify({
           type: 'pending_registration',
           studentData: studentData
         })
       });
 
-      await fetch(`http://localhost:3003/functions/send-whatsapp-notification`, {
+      await apiRequest('/functions/send-whatsapp-notification', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
-        },
         body: JSON.stringify({
           type: 'student_pending',
           studentData: studentData
@@ -234,12 +159,8 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
       });
 
       try {
-        await fetch(`http://localhost:3003/functions/send-email-notification`, {
+        await apiRequest('/functions/send-email-notification', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVta2l6eGZ0d3J3cWlpYWhqYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzEyNzIsImV4cCI6MjA2NDY0NzI3Mn0.6rGPdMiRcQ_plkkkHiwy73rOrSoGcLwAqZogNyQplTs'
-          },
           body: JSON.stringify({
             type: 'pending_registration',
             studentData: {
@@ -709,40 +630,25 @@ const RegistrationForm = ({ cpf, onRegistrationComplete, onBack }: RegistrationF
               </div>
             </div>
 
-            {/* Botões de teste e envio */}
-            <div className="flex flex-col gap-4 pt-6">
-              {/* Botão de teste da API */}
-              <div className="flex justify-center">
-                <Button 
-                  type="button"
-                  onClick={testAPI}
-                  variant="outline"
-                  className="w-full md:w-auto border-2 border-orange-500 text-orange-600 hover:bg-orange-50 font-bold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                >
-                  🧪 Testar API
-                </Button>
-              </div>
-              
-              {/* Botão de envio principal */}
-              <div className="flex justify-center">
-                <Button 
-                  type="submit" 
-                  disabled={isLoading}
-                  className="w-full md:w-auto bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Enviando...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      Enviar Solicitação
-                    </>
-                  )}
-                </Button>
-              </div>
+            {/* Botão de envio */}
+            <div className="flex justify-center pt-6">
+              <Button 
+                type="submit" 
+                disabled={isLoading}
+                className="w-full md:w-auto bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Enviar Solicitação
+                  </>
+                )}
+              </Button>
             </div>
           </form>
         </CardContent>

@@ -3,6 +3,7 @@ import { corsMiddleware } from '../utils/cors.js';
 import { readSheetDataWithRetry, writeSheetData, appendSheetData } from '../utils/google-auth.js';
 import QRCode from 'qrcode';
 import crypto from 'crypto';
+import { createStaticPix, hasError } from 'pix-utils';
 
 const router = express.Router();
 router.use(corsMiddleware);
@@ -38,56 +39,42 @@ router.post('/', async (req, res) => {
     // Criar descrição com ID de rastreamento
     const descricao = `Livro EETAD - ID: ${trackingId}`;
     
-    // Gerar código PIX com o ID de rastreamento na descrição
-    const beneficiario = 'EETAD';
-    const cidade = 'SAO PAULO';
+    console.log(`🔧 Gerando PIX ultra-simples para máxima compatibilidade...`);
     
-    // Construir payload PIX corretamente seguindo padrão EMV
-    const merchantInfo = `0014br.gov.bcb.pix01${(CHAVE_PIX.length).toString().padStart(2, '0')}${CHAVE_PIX}02${(descricao.length).toString().padStart(2, '0')}${descricao}`;
-    const additionalData = `0503${trackingId}`;
+    // Usar configuração minimalista para máxima compatibilidade bancária
+    const pixObject = createStaticPix({
+      merchantName: 'EETAD',
+      merchantCity: 'SAO PAULO',
+      pixKey: CHAVE_PIX,
+      transactionAmount: VALOR_PIX
+      // Não usar additionalInfo ou infoAdicional para evitar conflitos
+    });
     
-    const payload = [
-      '00020126', // Payload Format Indicator
-      `26${(merchantInfo.length).toString().padStart(2, '0')}${merchantInfo}`, // Merchant Account Information
-      '52040000', // Merchant Category Code
-      '5303986', // Transaction Currency (BRL)
-      `54${(VALOR_PIX.toFixed(2).length).toString().padStart(2, '0')}${VALOR_PIX.toFixed(2)}`, // Transaction Amount
-      '5802BR', // Country Code
-      `59${(beneficiario.length).toString().padStart(2, '0')}${beneficiario}`, // Merchant Name
-      `60${(cidade.length).toString().padStart(2, '0')}${cidade}`, // Merchant City
-      `62${(additionalData.length).toString().padStart(2, '0')}${additionalData}`, // Additional Data Field
-      '6304' // CRC16 placeholder
-    ].join('');
-    
-    const pixPayload = payload.slice(0, -4); // Remove CRC placeholder
-    
-    // Calcular CRC16
-    function calculateCRC16(payload) {
-      const polynomial = 0x1021;
-      let crc = 0xFFFF;
-      
-      for (let i = 0; i < payload.length; i++) {
-        crc ^= (payload.charCodeAt(i) << 8);
-        for (let j = 0; j < 8; j++) {
-          if (crc & 0x8000) {
-            crc = (crc << 1) ^ polynomial;
-          } else {
-            crc <<= 1;
-          }
-          crc &= 0xFFFF;
-        }
-      }
-      
-      return crc.toString(16).toUpperCase().padStart(4, '0');
+    if (hasError(pixObject)) {
+      console.error('❌ Erro na geração do PIX com pix-utils:', pixObject);
+      throw new Error('Erro ao gerar PIX: ' + pixObject.error);
     }
     
-    const crc = calculateCRC16(pixPayload);
-    const pixCode = pixPayload + crc;
+    // Converter para string BR Code
+    const pixCode = pixObject.toBRCode();
+    
+    // Validações de segurança
+    if (!pixCode || pixCode.length < 50) {
+      throw new Error('Código PIX inválido ou muito curto');
+    }
+    
+    if (!pixCode.includes(CHAVE_PIX)) {
+      throw new Error('Chave PIX não encontrada no código gerado');
+    }
+    
+    console.log(`✅ PIX ultra-simples gerado com ${pixCode.length} caracteres`);
+    console.log(`🔍 Código completo: ${pixCode}`);
+    console.log(`📊 Formato: Minimalista para máxima compatibilidade`);
     
     console.log(`📱 Gerando QR Code...`);
     
     // Gerar QR Code em Base64
-    const qrCodeBase64 = await QRCode.toDataURL(pixCode, {
+    const qrCodeDataUrl = await QRCode.toDataURL(pixCode, {
       errorCorrectionLevel: 'M',
       type: 'image/png',
       quality: 0.92,
@@ -98,6 +85,9 @@ router.post('/', async (req, res) => {
       },
       width: 256
     });
+    
+    // Remover o prefixo data:image/png;base64, para retornar apenas o base64
+    const qrCodeBase64 = qrCodeDataUrl.replace(/^data:image\/png;base64,/, '');
 
     // Salvar registro de rastreamento na planilha
     const GOOGLE_SHEETS_SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID || '1BKet2O-aSnNKPRflC24PxnOQikVA5k9RhzmBiJtzhAA';

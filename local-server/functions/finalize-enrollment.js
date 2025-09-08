@@ -1,6 +1,6 @@
 import express from 'express';
 import { corsMiddleware } from '../utils/cors.js';
-import { readSheetData, writeSheetData, appendSheetData } from '../utils/google-auth.js';
+import { readSheetDataWithRetry, writeSheetData, appendSheetData } from '../utils/google-auth.js';
 
 const router = express.Router();
 
@@ -72,7 +72,7 @@ router.post('/', async (req, res) => {
     console.log(`👤 Buscando dados do aluno na linha ${enrollmentData.rowIndex}...`);
     
     const studentRange = `${DADOS_PESSOAIS_SHEET}!A${enrollmentData.rowIndex}:Z${enrollmentData.rowIndex}`;
-    const studentData = await readSheetData(GOOGLE_SHEETS_SPREADSHEET_ID, studentRange);
+    const studentData = await readSheetDataWithRetry(GOOGLE_SHEETS_SPREADSHEET_ID, studentRange);
     const studentRow = studentData[0] || [];
     
     console.log('📊 Dados do aluno encontrados:', {

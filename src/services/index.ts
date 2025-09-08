@@ -1,3 +1,7 @@
+// Serviços de API e Conectividade
+export { apiRequest, checkBackendHealth, getConnectionStatus } from './api';
+export { connectionService, default as useConnection } from './connectionService';
+
 // Serviços de Alunos
 export { default as useApprovedStudents, getApprovedStudents } from './approvedStudentsService';
 export { default as usePendingStudents, getPendingStudents } from './pendingStudentsService';

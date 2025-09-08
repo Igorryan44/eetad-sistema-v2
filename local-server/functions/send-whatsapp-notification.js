@@ -58,6 +58,37 @@ router.post('/', async (req, res) => {
 📍 Verificar dados na planilha "alunos matriculados"`;
         break;
 
+      case 'pending_registration':
+        message = `📝 NOVA SOLICITAÇÃO DE MATRÍCULA
+
+👤 Dados do Interessado:
+• Nome: ${notification.studentData.nome}
+• CPF: ${notification.studentData.cpf}
+• Email: ${notification.studentData.email}
+• Telefone: ${notification.studentData.telefone || 'Não informado'}
+
+⏳ Aguardando aprovação da secretaria
+📍 Verificar dados na planilha "pendentes"`;
+        break;
+
+      case 'student_pending':
+        message = `🎓 Solicitação de matrícula recebida!
+
+✅ Sua solicitação foi enviada com sucesso!
+
+👤 Nome: ${notification.studentData.nome}
+📄 CPF: ${notification.studentData.cpf}
+📧 Email: ${notification.studentData.email}
+
+⏳ Sua solicitação está sendo analisada pela secretaria.
+📞 Você será contatado em breve com o resultado.
+
+Obrigado pelo interesse na EETAD Núcleo Palmas - TO! 🙏`;
+        
+        // Para notificação do aluno, usar o telefone do aluno
+        recipient = notification.studentData.telefone || secretaryWhatsApp;
+        break;
+
       case 'book_order':
         message = `📚 NOVO PEDIDO DE LIVRO
 

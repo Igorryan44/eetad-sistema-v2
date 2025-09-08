@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/hooks/use-toast";
 import { BookOrder } from "@/pages/Index";
+import { apiRequest } from "@/services/api";
 import { 
   CheckCircle, 
   Book, 
@@ -27,9 +28,23 @@ import {
 interface CheckoutPageProps {
   bookOrder: BookOrder;
   onBack: () => void;
+  onPaymentComplete?: () => void;
 }
 
-const CheckoutPage = ({ bookOrder, onBack }: CheckoutPageProps) => {
+const CheckoutPage = ({ bookOrder, onBack, onPaymentComplete }: CheckoutPageProps) => {
+  const [pixKey, setPixKey] = useState<string>("");
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'approved' | 'rejected' | 'cancelled'>('pending');
+  const [isGeneratingPix, setIsGeneratingPix] = useState(false);
+  const [pixGenerated, setPixGenerated] = useState(false);
+  const [paymentId, setPaymentId] = useState<string>("");
+  const [identificadorUnico, setIdentificadorUnico] = useState<string>("");
+  const [pixError, setPixError] = useState<string>("");
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [progressValue, setProgressValue] = useState(25);
+  const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
+
   // Verificação de segurança para bookOrder
   if (!bookOrder || !bookOrder.studentName || !bookOrder.cpf || !bookOrder.bookName) {
     return (
@@ -46,19 +61,6 @@ const CheckoutPage = ({ bookOrder, onBack }: CheckoutPageProps) => {
     );
   }
 
-  const [pixKey, setPixKey] = useState<string>("");
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
-  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'approved' | 'rejected' | 'cancelled'>('pending');
-  const [isGeneratingPix, setIsGeneratingPix] = useState(false);
-  const [pixGenerated, setPixGenerated] = useState(false);
-  const [paymentId, setPaymentId] = useState<string>("");
-  const [identificadorUnico, setIdentificadorUnico] = useState<string>("");
-
-  const [pixError, setPixError] = useState<string>("");
-  const [isRegenerating, setIsRegenerating] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [progressValue, setProgressValue] = useState(25);
-  const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
 
   const generateRealPix = async () => {
     if (pixGenerated) return;
@@ -67,34 +69,28 @@ const CheckoutPage = ({ bookOrder, onBack }: CheckoutPageProps) => {
     setPixError("");
     
     try {
-      const response = await fetch('http://localhost:3003/functions/generate-pix-with-tracking', {
+      const data = await apiRequest('/functions/generate-pix-with-tracking', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           nome: bookOrder.studentName || '',
           cpf: bookOrder.cpf || '',
           valor: bookOrder.price || 45
-        }),
+        })
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao gerar PIX');
-      }
-
-      const data = await response.json();
       
       if (data.success) {
         setPixKey(data.pix_code);
-        setQrCodeUrl(data.qr_code_base64);
+        // Garantir que o QR code tenha o prefixo data:image correto
+        const qrCodeFormatted = data.qr_code_base64.startsWith('data:image/') 
+          ? data.qr_code_base64 
+          : `data:image/png;base64,${data.qr_code_base64}`;
+        setQrCodeUrl(qrCodeFormatted);
         setPaymentId(data.tracking_id);
         setIdentificadorUnico(data.tracking_id);
         setPixGenerated(true);
         setPaymentStatus('pending');
         
-        // PIX gerado com sucesso
+        console.log('✅ PIX gerado com sucesso:', data.tracking_id);
         
         toast({
           title: "PIX gerado com sucesso!",
@@ -104,7 +100,7 @@ const CheckoutPage = ({ bookOrder, onBack }: CheckoutPageProps) => {
         throw new Error(data.error || 'Erro ao gerar PIX');
       }
     } catch (error) {
-      console.error('Erro ao gerar PIX:', error);
+      console.error('❌ Erro ao gerar PIX:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao gerar PIX';
       setPixError(errorMessage);
       toast({
@@ -122,34 +118,27 @@ const CheckoutPage = ({ bookOrder, onBack }: CheckoutPageProps) => {
     setPixError("");
     
     try {
-      // Usar a mesma função que gera PIX com identificador único
-      const response = await fetch('http://localhost:3003/functions/generate-pix-with-tracking', {
+      const data = await apiRequest('/functions/generate-pix-with-tracking', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           nome: bookOrder.studentName || '',
           cpf: bookOrder.cpf || '',
           valor: bookOrder.price || 45
-        }),
+        })
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao regenerar PIX');
-      }
-
-      const data = await response.json();
       
       if (data.success) {
         // Atualizar com os novos dados únicos
         setPixKey(data.pix_code);
-        setQrCodeUrl(data.qr_code_base64);
+        // Garantir que o QR code tenha o prefixo data:image correto
+        const qrCodeFormatted = data.qr_code_base64.startsWith('data:image/') 
+          ? data.qr_code_base64 
+          : `data:image/png;base64,${data.qr_code_base64}`;
+        setQrCodeUrl(qrCodeFormatted);
         setPaymentId(data.tracking_id);
         setIdentificadorUnico(data.tracking_id);
         
-        // PIX regenerado com sucesso
+        console.log('✅ PIX regenerado com sucesso:', data.tracking_id);
         
         toast({
           title: "PIX regenerado com sucesso!",
@@ -159,7 +148,7 @@ const CheckoutPage = ({ bookOrder, onBack }: CheckoutPageProps) => {
         throw new Error(data.error || 'Erro ao regenerar PIX');
       }
     } catch (error) {
-      console.error('Erro ao regenerar PIX:', error);
+      console.error('❌ Erro ao regenerar PIX:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao regenerar PIX';
       setPixError(errorMessage);
       toast({
@@ -178,21 +167,12 @@ const CheckoutPage = ({ bookOrder, onBack }: CheckoutPageProps) => {
     if (!paymentId) return;
     
     try {
-      const response = await fetch('http://localhost:3003/functions/cancel-order', {
+      const data = await apiRequest('/functions/cancel-order', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           paymentId: paymentId
-        }),
+        })
       });
-
-      if (!response.ok) {
-        throw new Error('Erro ao cancelar pagamento');
-      }
-
-      const data = await response.json();
       
       if (data.success) {
         setPaymentStatus('cancelled');
@@ -203,7 +183,7 @@ const CheckoutPage = ({ bookOrder, onBack }: CheckoutPageProps) => {
         });
       }
     } catch (error) {
-      console.error('Erro ao cancelar pagamento:', error);
+      console.error('❌ Erro ao cancelar pagamento:', error);
       toast({
         title: "Erro ao cancelar",
         description: "Não foi possível cancelar o pagamento.",
@@ -234,36 +214,47 @@ const CheckoutPage = ({ bookOrder, onBack }: CheckoutPageProps) => {
     setIsConfirmingPayment(true);
 
     try {
-      const response = await fetch('http://localhost:3003/functions/confirm-pix-by-id', {
+      console.log('💳 Confirmando pagamento com ID:', identificadorUnico);
+      
+      const result = await apiRequest('/functions/confirm-pix-by-id', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           identificador: identificadorUnico,
           valor_pago: bookOrder.price || 45,
           data_pagamento: new Date().toLocaleString('pt-BR'),
-          observacoes: 'Pagamento confirmado manualmente'
-        }),
+          observacoes: 'Pagamento confirmado manualmente via frontend'
+        })
       });
 
-      if (response.ok) {
-        const result = await response.json();
+      if (result.success) {
         setPaymentStatus('approved');
+        console.log('✅ Pagamento confirmado com sucesso:', result);
+        
         toast({
           title: "Pagamento Confirmado!",
-          description: "O pagamento foi confirmado com sucesso.",
+          description: "O pagamento foi confirmado com sucesso. Redirecionando...",
         });
 
+        // Wait 2 seconds to show success message, then redirect to CPF screen
+        setTimeout(() => {
+          if (onPaymentComplete) {
+            onPaymentComplete();
+          }
+        }, 3000); // Increased to 3 seconds for better UX
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao confirmar pagamento');
+        throw new Error(result.error || 'Erro ao confirmar pagamento');
       }
     } catch (error) {
       console.error('❌ Erro ao confirmar pagamento:', error);
+      
+      let errorMessage = 'Erro desconhecido';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Erro na confirmação",
-        description: error instanceof Error ? error.message : 'Erro desconhecido',
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -334,12 +325,12 @@ const CheckoutPage = ({ bookOrder, onBack }: CheckoutPageProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 relative">
       <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl animate-float"></div>
       <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-float" style={{animationDelay: '2s'}}></div>
       
-      <div className="relative z-10 container mx-auto px-4 py-6 md:py-8">
-        <div className="flex items-center gap-4 mb-4">
+      <div className="relative z-10 flex flex-col container mx-auto px-4 py-6 min-h-screen">
+        <div className="flex items-center gap-4 mb-6 flex-shrink-0">
           <Button 
             variant="ghost" 
             size="sm" 
@@ -351,161 +342,162 @@ const CheckoutPage = ({ bookOrder, onBack }: CheckoutPageProps) => {
           </Button>
           
           <div className="flex-1">
-            <h1 className="text-xl md:text-2xl font-bold text-gray-800">Finalizar Pedido</h1>
-            <p className="text-gray-600 text-sm mt-1">Complete seu pagamento via PIX</p>
+            <h1 className="text-lg md:text-xl font-bold text-gray-800">Finalizar Pedido</h1>
+            <p className="text-gray-600 text-xs mt-0.5">Complete seu pagamento via PIX</p>
           </div>
         </div>
 
         {/* Barra de Progresso */}
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-3">
-            <div className="flex items-center gap-2">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+        <div className="mb-6 flex-shrink-0">
+          <div className="flex justify-between items-center mb-2">
+            <div className="flex items-center gap-1.5">
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
                 currentStep >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
               }`}>
                 1
               </div>
-              <span className={`text-sm font-medium ${
+              <span className={`text-xs font-medium ${
                 currentStep >= 1 ? 'text-blue-600' : 'text-gray-500'
               }`}>Dados</span>
             </div>
             
-            <div className="flex items-center gap-2">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+            <div className="flex items-center gap-1.5">
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
                 currentStep >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
               }`}>
                 2
               </div>
-              <span className={`text-sm font-medium ${
+              <span className={`text-xs font-medium ${
                 currentStep >= 2 ? 'text-blue-600' : 'text-gray-500'
               }`}>PIX Gerado</span>
             </div>
             
-            <div className="flex items-center gap-2">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+            <div className="flex items-center gap-1.5">
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
                 currentStep >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
               }`}>
                 3
               </div>
-              <span className={`text-sm font-medium ${
+              <span className={`text-xs font-medium ${
                 currentStep >= 3 ? 'text-blue-600' : 'text-gray-500'
               }`}>Processando</span>
             </div>
             
-            <div className="flex items-center gap-2">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+            <div className="flex items-center gap-1.5">
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
                 currentStep >= 4 ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-500'
               }`}>
-                {currentStep >= 4 ? <CheckCircle className="h-4 w-4" /> : '4'}
+                {currentStep >= 4 ? <CheckCircle className="h-3 w-3" /> : '4'}
               </div>
-              <span className={`text-sm font-medium ${
+              <span className={`text-xs font-medium ${
                 currentStep >= 4 ? 'text-green-600' : 'text-gray-500'
               }`}>Concluído</span>
             </div>
           </div>
           
-          <Progress value={progressValue} className="h-2" />
+          <Progress value={progressValue} className="h-1.5" />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-          <div className="space-y-4">
-            <Card className="glass border-white/20 shadow-xl">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <FileText className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg text-gray-800">Resumo do Pedido</CardTitle>
-                    <CardDescription className="text-sm text-gray-600">Confira os detalhes</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="glass-dark p-3 md:p-4 rounded-xl space-y-3 border border-white/20">
-                  <div className="flex justify-between items-center py-1.5 border-b border-gray-200/50">
-                    <div className="flex items-center gap-2">
-                      <User className="h-3 w-3 text-gray-500" />
-                      <span className="text-sm text-gray-600 font-medium">Nome:</span>
+        <div className="flex-1 min-h-0">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
+            <div className="space-y-6 flex flex-col h-full">
+              <Card className="glass border-white/20 shadow-2xl flex-shrink-0 transform hover:scale-105 transition-transform duration-200">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-blue-100 rounded-xl">
+                      <FileText className="h-8 w-8 text-blue-600" />
                     </div>
-                    <span className="text-sm font-semibold text-gray-800">{bookOrder.studentName || 'N/A'}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center py-1.5 border-b border-gray-200/50">
-                    <div className="flex items-center gap-2">
-                      <Hash className="h-3 w-3 text-gray-500" />
-                      <span className="text-sm text-gray-600 font-medium">CPF:</span>
+                    <div>
+                      <CardTitle className="text-2xl text-gray-800 font-bold">Resumo do Pedido</CardTitle>
+                      <CardDescription className="text-base text-gray-600 mt-1">Confira os detalhes</CardDescription>
                     </div>
-                    <span className="text-sm font-semibold text-gray-800">{bookOrder.cpf || 'N/A'}</span>
                   </div>
-                  
-                  <div className="flex justify-between items-center py-1.5 border-b border-gray-200/50">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-3 w-3 text-gray-500" />
-                      <span className="text-sm text-gray-600 font-medium">Ciclo:</span>
-                    </div>
-                    <span className="text-sm font-semibold text-gray-800">{bookOrder.cycle || 'N/A'}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center py-1.5">
-                    <div className="flex items-center gap-2">
-                      <Book className="h-3 w-3 text-gray-500" />
-                      <span className="text-sm text-gray-600 font-medium">Livro:</span>
-                    </div>
-                    <span className="text-sm font-semibold text-gray-800">{bookOrder.bookName || 'N/A'}</span>
-                  </div>
-                  
-                  <div className="pt-3 border-t border-gray-200/50">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 text-green-600" />
-                        <span className="text-base font-bold text-gray-800">Total:</span>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="glass-dark p-6 rounded-2xl space-y-4 border border-white/20">
+                    <div className="flex justify-between items-center py-3 border-b border-gray-200/50">
+                      <div className="flex items-center gap-3">
+                        <User className="h-6 w-6 text-gray-500" />
+                        <span className="text-lg text-gray-600 font-medium">Nome:</span>
                       </div>
-                      <span className="text-xl font-bold text-green-600">
-                        R$ {(bookOrder.price || 0).toFixed(2).replace('.', ',')}
-                      </span>
+                      <span className="text-lg font-semibold text-gray-800">{bookOrder.studentName || 'N/A'}</span>
                     </div>
-                  </div>
+                    
+                    <div className="flex justify-between items-center py-3 border-b border-gray-200/50">
+                      <div className="flex items-center gap-3">
+                        <Hash className="h-6 w-6 text-gray-500" />
+                        <span className="text-lg text-gray-600 font-medium">CPF:</span>
+                      </div>
+                      <span className="text-lg font-semibold text-gray-800">{bookOrder.cpf || 'N/A'}</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center py-3 border-b border-gray-200/50">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-6 w-6 text-gray-500" />
+                        <span className="text-lg text-gray-600 font-medium">Ciclo:</span>
+                      </div>
+                      <span className="text-lg font-semibold text-gray-800">{bookOrder.cycle || 'N/A'}</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center py-3">
+                      <div className="flex items-center gap-3">
+                        <Book className="h-6 w-6 text-gray-500" />
+                        <span className="text-lg text-gray-600 font-medium">Livro:</span>
+                      </div>
+                      <span className="text-lg font-semibold text-gray-800">{bookOrder.bookName || 'N/A'}</span>
+                    </div>
+                    
+                    <div className="pt-4 border-t border-gray-200/50">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          <DollarSign className="h-8 w-8 text-green-600" />
+                          <span className="text-2xl font-bold text-gray-800">Total:</span>
+                        </div>
+                        <span className="text-3xl font-bold text-green-600">
+                          R$ {(bookOrder.price || 0).toFixed(2).replace('.', ',')}
+                        </span>
+                      </div>
+                    </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          <div className="space-y-4">
-            <Card className="glass border-white/20 shadow-xl">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <QrCode className="h-4 w-4 text-green-600" />
+            <div className="space-y-6 flex flex-col h-full">
+              <Card className="glass border-white/20 shadow-2xl flex-1 min-h-0 transform hover:scale-105 transition-transform duration-200">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-green-100 rounded-xl">
+                      <QrCode className="h-8 w-8 text-green-600" />
+                    </div>
+                    <div className="flex-1">
+                      <CardTitle className="text-2xl text-gray-800 font-bold">Pagamento PIX</CardTitle>
+                      <CardDescription className="text-base text-gray-600 mt-1">Escaneie o QR Code ou copie a chave</CardDescription>
+                    </div>
+                    <div className={`px-4 py-2 rounded-full text-base font-medium ${getStatusColor()} bg-white/50`}>
+                      {getStatusText()}
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <CardTitle className="text-lg text-gray-800">Pagamento PIX</CardTitle>
-                    <CardDescription className="text-sm text-gray-600">Escaneie o QR Code ou copie a chave</CardDescription>
-                  </div>
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor()} bg-white/50`}>
-                    {getStatusText()}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
+                </CardHeader>
+                <CardContent className="space-y-6">
                 {isGeneratingPix && (
                   <div className="flex flex-col items-center justify-center py-8 space-y-4">
-                    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                    <p className="text-gray-600 text-center">Gerando PIX...</p>
+                    <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+                    <p className="text-gray-600 text-center text-lg font-medium">Gerando PIX...</p>
                   </div>
                 )}
 
                 {pixError && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2 text-red-800">
-                      <X className="h-4 w-4" />
-                      <span className="font-medium">Erro ao gerar PIX</span>
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+                    <div className="flex items-center gap-3 text-red-800">
+                      <X className="h-6 w-6" />
+                      <span className="font-medium text-lg">Erro ao gerar PIX</span>
                     </div>
-                    <p className="text-red-700 text-sm mt-1">{pixError}</p>
+                    <p className="text-red-700 text-base mt-2">{pixError}</p>
                     <Button 
                       onClick={generateRealPix} 
-                      className="mt-3 bg-red-600 hover:bg-red-700"
-                      size="sm"
+                      className="mt-4 bg-red-600 hover:bg-red-700 text-lg px-6 py-3"
+                      size="lg"
                     >
                       Tentar Novamente
                     </Button>
@@ -513,28 +505,28 @@ const CheckoutPage = ({ bookOrder, onBack }: CheckoutPageProps) => {
                 )}
 
                 {pixGenerated && qrCodeUrl && (
-                  <div className="space-y-4">
-                    <div className="flex flex-col items-center space-y-3">
-                      <div className="bg-white p-3 rounded-xl shadow-lg border border-gray-200">
+                  <div className="space-y-6">
+                    <div className="flex flex-col items-center space-y-4">
+                      <div className="bg-white p-6 rounded-2xl shadow-2xl border border-gray-200">
                         <img 
                           src={qrCodeUrl} 
                           alt="QR Code PIX" 
-                          className="w-40 h-40 md:w-44 md:h-44"
+                          className="w-48 h-48"
                         />
                       </div>
                       
-                      <div className="flex gap-2 flex-wrap justify-center">
+                      <div className="flex gap-4 flex-wrap justify-center">
                         <Button 
                           onClick={regeneratePix}
                           variant="default"
-                          size="sm"
+                          size="lg"
                           disabled={isRegenerating}
-                          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                          className="flex items-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-xl text-base"
                         >
                           {isRegenerating ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Loader2 className="h-5 w-5 animate-spin" />
                           ) : (
-                            <RefreshCw className="h-4 w-4" />
+                            <RefreshCw className="h-5 w-5" />
                           )}
                           Regenerar PIX
                         </Button>
@@ -542,77 +534,80 @@ const CheckoutPage = ({ bookOrder, onBack }: CheckoutPageProps) => {
                         <Button 
                           onClick={cancelPayment}
                           variant="outline"
-                          size="sm"
-                          className="flex items-center gap-2 text-red-600 hover:text-white hover:bg-red-600 border-red-300 hover:border-red-600 font-medium px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                          size="lg"
+                          className="flex items-center gap-3 text-red-600 hover:text-white hover:bg-red-600 border-red-300 hover:border-red-600 font-medium px-6 py-3 rounded-xl text-base"
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-5 w-5" />
                           Cancelar Pedido
                         </Button>
                       </div>
                     </div>
 
-                    <div className="space-y-3">
-                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                        <Label className="text-xs font-medium text-gray-700 mb-2 block">Chave PIX (Copia e Cola)</Label>
-                        <div className="flex gap-2">
+                    <div className="space-y-4">
+                      <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                        <Label className="text-base font-medium text-gray-700 mb-2 block">Chave PIX (Copia e Cola)</Label>
+                        <div className="flex gap-3">
                           <Input 
                             value={pixKey} 
                             readOnly 
-                            className="font-mono text-xs bg-white h-8"
+                            className="font-mono text-base bg-white h-12"
                           />
                           <Button 
                             onClick={copyPixKey}
-                            size="sm"
-                            className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 h-8 px-3"
+                            size="lg"
+                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 h-12 px-4 text-base"
                           >
-                            <Copy className="h-3 w-3" />
+                            <Copy className="h-5 w-5" />
                             Copiar
                           </Button>
                         </div>
                       </div>
 
                       {paymentStatus === 'pending' && (
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                          <div className="flex items-center gap-2 text-blue-800 mb-1">
-                            <Clock className="h-3 w-3" />
-                            <span className="text-sm font-medium">Aguardando Pagamento</span>
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                          <div className="flex items-center gap-3 text-blue-800 mb-2">
+                            <Clock className="h-6 w-6" />
+                            <span className="text-lg font-medium">Aguardando Pagamento</span>
                           </div>
-                          <p className="text-blue-700 text-xs mb-2">
-                            Estamos verificando automaticamente o status do seu pagamento. 
-                            Você será notificado assim que o pagamento for confirmado.
+                          <p className="text-blue-700 text-base mb-2">
+                            Estamos verificando automaticamente o status do seu pagamento.
                           </p>
-                          <div className="flex items-center gap-2 text-blue-600 text-xs">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            <span>Verificando a cada 5 segundos...</span>
+                          <div className="flex items-center gap-3 text-blue-600 text-base">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <span>Verificando...</span>
                           </div>
                         </div>
                       )}
 
                       {paymentStatus === 'approved' && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                          <div className="flex items-center gap-2 text-green-800 mb-1">
-                            <CheckCircle className="h-4 w-4" />
-                            <span className="text-sm font-medium">Pagamento Confirmado!</span>
+                        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                          <div className="flex items-center gap-3 text-green-800 mb-2">
+                            <CheckCircle className="h-6 w-6" />
+                            <span className="text-lg font-medium">Pagamento Confirmado!</span>
                           </div>
-                          <p className="text-green-700 text-xs">
-                            Seu pagamento foi aprovado com sucesso. Você receberá uma confirmação por email em breve.
+                          <p className="text-green-700 text-base mb-3">
+                            Seu pagamento foi aprovado com sucesso. Redirecionando para nova consulta...
                           </p>
+                          <div className="flex items-center gap-2 text-green-600">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-sm">Redirecionando em 3 segundos...</span>
+                          </div>
                         </div>
                       )}
 
                       {paymentStatus === 'rejected' && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                          <div className="flex items-center gap-2 text-red-800 mb-1">
-                            <X className="h-4 w-4" />
-                            <span className="text-sm font-medium">Pagamento Rejeitado</span>
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                          <div className="flex items-center gap-3 text-red-800 mb-2">
+                            <X className="h-6 w-6" />
+                            <span className="text-lg font-medium">Pagamento Rejeitado</span>
                           </div>
-                          <p className="text-red-700 text-xs mb-2">
-                            O pagamento foi rejeitado. Tente novamente ou entre em contato conosco.
+                          <p className="text-red-700 text-base mb-3">
+                            O pagamento foi rejeitado. Tente novamente.
                           </p>
                           <Button 
                             onClick={regeneratePix}
-                            size="sm"
-                            className="bg-red-600 hover:bg-red-700"
+                            size="lg"
+                            className="bg-red-600 hover:bg-red-700 text-base px-4 py-2"
                           >
                             Gerar Novo PIX
                           </Button>
@@ -624,115 +619,104 @@ const CheckoutPage = ({ bookOrder, onBack }: CheckoutPageProps) => {
               </CardContent>
             </Card>
 
-            <Card className="glass border-white/20 shadow-xl">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Info className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg text-gray-800">Instruções de Pagamento</CardTitle>
-                    <CardDescription className="text-gray-600">Como realizar o pagamento PIX</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 text-sm text-gray-600">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xs mt-0.5">
-                      1
+              <Card className="glass border-white/20 shadow-2xl flex-shrink-0 transform hover:scale-105 transition-transform duration-200">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-purple-100 rounded-xl">
+                      <Info className="h-8 w-8 text-purple-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-800">Abra seu app bancário</p>
-                      <p className="text-gray-600">Acesse a área PIX do seu banco ou carteira digital</p>
+                      <CardTitle className="text-2xl text-gray-800 font-bold">Instruções</CardTitle>
+                      <CardDescription className="text-base text-gray-600 mt-1">Como pagar via PIX</CardDescription>
                     </div>
                   </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xs mt-0.5">
-                      2
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-800">Escaneie o QR Code ou copie a chave</p>
-                      <p className="text-gray-600">Use a câmera para ler o QR Code ou cole a chave PIX</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xs mt-0.5">
-                      3
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-800">Confirme o pagamento</p>
-                      <p className="text-gray-600">Verifique os dados e confirme a transação</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold text-xs mt-0.5">
-                      4
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-800">Confirme o pagamento</p>
-                      <p className="text-gray-600">Após realizar o PIX, clique no botão "Confirmar Pagamento" abaixo</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-yellow-800 mb-2">
-                    <Smartphone className="h-4 w-4" />
-                    <span className="font-medium text-sm">Dica Importante</span>
-                  </div>
-                  <p className="text-yellow-700 text-xs">
-                    Após realizar o pagamento PIX, clique no botão "Confirmar Pagamento" para finalizar o processo.
-                  </p>
-                </div>
-                
-                {/* Botão de confirmação de pagamento */}
-                {pixGenerated && paymentStatus === 'pending' && (
-                  <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-green-800 mb-2">
-                      <CheckCircle className="h-4 w-4" />
-                      <span className="font-medium text-sm">Confirmar Pagamento</span>
-                    </div>
-                    <p className="text-green-700 text-xs mb-3">
-                      Após realizar o pagamento PIX, clique no botão abaixo para confirmar:
-                    </p>
-                    
-                    {isConfirmingPayment && (
-                      <div className="mb-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Loader2 className="h-4 w-4 animate-spin text-green-600" />
-                          <span className="text-sm text-green-700 font-medium">Confirmando Pagamento...</span>
-                        </div>
-                        <Progress value={75} className="h-2 bg-green-100">
-                          <div className="h-full bg-green-500 transition-all duration-300 ease-in-out" style={{width: '75%'}} />
-                        </Progress>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4 text-base text-gray-600">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-base mt-1">
+                        1
                       </div>
-                    )}
+                      <div>
+                        <p className="font-medium text-gray-800 text-lg">Abra seu app bancário</p>
+                        <p className="text-gray-600 text-base">Acesse a área PIX</p>
+                      </div>
+                    </div>
                     
-                    <Button
-                      onClick={confirmPayment}
-                      disabled={isConfirmingPayment}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg text-sm transition-colors disabled:opacity-50"
-                    >
-                      {isConfirmingPayment ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          Confirmando...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Confirmar Pagamento
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-base mt-1">
+                        2
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-800 text-lg">Escaneie o QR Code</p>
+                        <p className="text-gray-600 text-base">Ou copie a chave PIX</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold text-base mt-1">
+                        3
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-800 text-lg">Confirme o pagamento</p>
+                        <p className="text-gray-600 text-base">Clique em "Confirmar Pagamento" abaixo</p>
+                      </div>
+                    </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                  
+                  <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+                    <div className="flex items-center gap-3 text-yellow-800 mb-2">
+                      <Smartphone className="h-6 w-6" />
+                      <span className="font-medium text-lg">Dica Importante</span>
+                    </div>
+                    <p className="text-yellow-700 text-base">
+                      Após realizar o PIX, clique em "Confirmar Pagamento".
+                    </p>
+                  </div>
+                
+                  {/* Botão de confirmação de pagamento */}
+                  {pixGenerated && paymentStatus === 'pending' && (
+                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center gap-1.5 text-green-800 mb-1">
+                        <CheckCircle className="h-3 w-3" />
+                        <span className="font-medium text-xs">Confirmar Pagamento</span>
+                      </div>
+                      <p className="text-green-700 text-xs mb-2">
+                        Após realizar o PIX, clique no botão abaixo:
+                      </p>
+                      
+                      {isConfirmingPayment && (
+                        <div className="mb-2">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Loader2 className="h-3 w-3 animate-spin text-green-600" />
+                            <span className="text-xs text-green-700 font-medium">Confirmando...</span>
+                          </div>
+                          <Progress value={75} className="h-1 bg-green-100" />
+                        </div>
+                      )}
+                      
+                      <Button
+                        onClick={confirmPayment}
+                        disabled={isConfirmingPayment}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-xl text-lg transition-colors disabled:opacity-50 shadow-lg hover:shadow-xl transform hover:scale-105"
+                      >
+                        {isConfirmingPayment ? (
+                          <>
+                            <Loader2 className="h-6 w-6 animate-spin mr-3" />
+                            Confirmando...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="h-6 w-6 mr-3" />
+                            Confirmar Pagamento
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>

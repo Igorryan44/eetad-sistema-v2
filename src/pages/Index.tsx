@@ -51,6 +51,19 @@ const Index = () => {
     setCurrentStep('checkout');
   };
 
+  const handlePaymentComplete = () => {
+    // Reset all state and return to CPF screen
+    setCurrentStep('cpf');
+    setCurrentStudent(null);
+    setCurrentBookOrder(null);
+    
+    // Show success toast
+    toast({
+      title: "✅ Processo Concluído!",
+      description: "Pagamento confirmado com sucesso. Você pode fazer um novo pedido.",
+    });
+  };
+
   const handleBackToCPF = () => {
     setCurrentStep('cpf');
     setCurrentStudent(null);
@@ -192,6 +205,7 @@ const Index = () => {
                 <CheckoutPage 
                   bookOrder={currentBookOrder}
                   onBack={() => setCurrentStep('bookOrder')}
+                  onPaymentComplete={handlePaymentComplete}
                 />
               </div>
             )}

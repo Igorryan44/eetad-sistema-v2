@@ -100,7 +100,7 @@ const BookOrderForm = ({ student, onBookOrderComplete, onBack }: BookOrderFormPr
     try {
 
       // Usar servidor local
-      const response = await fetch('http://localhost:3003/functions/get-book-orders-by-cpf-book-observacao', {
+      const response = await fetch((((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003') + '/functions/get-book-orders-by-cpf-book-observacao', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -206,7 +206,7 @@ const BookOrderForm = ({ student, onBookOrderComplete, onBack }: BookOrderFormPr
       
 
 
-      const response = await fetch(`http://localhost:3003/functions/save-book-order`, {
+      const response = await fetch((((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003') + `/functions/save-book-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -221,7 +221,7 @@ const BookOrderForm = ({ student, onBookOrderComplete, onBack }: BookOrderFormPr
       }
 
       // Notificação via servidor local
-      const notifResp = await fetch('http://localhost:3003/functions/send-whatsapp-notification', {
+      const notifResp = await fetch((((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003') + '/functions/send-whatsapp-notification', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -243,7 +243,7 @@ const BookOrderForm = ({ student, onBookOrderComplete, onBack }: BookOrderFormPr
         const errorData = await notifResp.json().catch(() => ({ message: 'Erro desconhecido' }));
         console.error("[BookOrderForm] Erro ao enviar notificação WhatsApp:", errorData);
       } else {
-
+        console.log("[BookOrderForm] Notificação WhatsApp enviada com sucesso");
       }
 
       toast({

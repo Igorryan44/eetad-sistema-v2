@@ -2,6 +2,7 @@ import express from 'express';
 import { corsMiddleware } from '../utils/cors.js';
 import { readSheetDataWithRetry, writeSheetData } from '../utils/google-auth.js';
 import QRCode from 'qrcode';
+import { createStaticPix, hasError } from 'pix-utils';
 
 const router = express.Router();
 router.use(corsMiddleware);
@@ -25,31 +26,24 @@ function generateUniqueId() {
 }
 
 /**
- * Gera payload PIX com identificador único
+ * Gera PIX ultra-simples usando pix-utils para máxima compatibilidade
  */
-function generatePixPayload(nomeAluno, cpf, identificador) {
-  const cpfLimpo = cpf.replace(/\D/g, '');
-  const descricao = `Livro ${nomeAluno} CPF:${cpfLimpo} ID:${identificador}`;
+function generatePixWithId(nomeAluno, cpf, identificador) {
+  // Usar configuração minimalista para evitar problemas de compatibilidade
+  const pixObject = createStaticPix({
+    merchantName: BENEFICIARIO,
+    merchantCity: CIDADE,
+    pixKey: CHAVE_PIX,
+    transactionAmount: VALOR_PIX
+    // Não incluir informações adicionais para máxima compatibilidade
+  });
   
-  // Formato PIX EMV QR Code
-  const payload = [
-    '00020126', // Payload Format Indicator
-    '800014br.gov.bcb.pix', // Merchant Account Information
-    `01${(CHAVE_PIX.length + 4).toString().padStart(2, '0')}${CHAVE_PIX}`, // PIX Key
-    `02${(descricao.length).toString().padStart(2, '0')}${descricao}`, // Description
-    '52040000', // Merchant Category Code
-    '5303986', // Transaction Currency (BRL)
-    `54${(VALOR_PIX.toFixed(2).length).toString().padStart(2, '0')}${VALOR_PIX.toFixed(2)}`, // Transaction Amount
-    '5802BR', // Country Code
-    `59${(BENEFICIARIO.length).toString().padStart(2, '0')}${BENEFICIARIO}`, // Merchant Name
-    `60${(CIDADE.length).toString().padStart(2, '0')}${CIDADE}`, // Merchant City
-    `62${(identificador.length + 7).toString().padStart(2, '0')}0503${identificador}`, // Additional Data Field
-    '6304' // CRC16
-  ].join('');
+  if (hasError(pixObject)) {
+    console.error('❌ Erro na geração do PIX:', pixObject);
+    throw new Error('Erro ao gerar PIX: ' + pixObject.error);
+  }
   
-  // Calcular CRC16
-  const crc = calculateCRC16(payload.slice(0, -4));
-  return payload.slice(0, -4) + crc.toString(16).toUpperCase().padStart(4, '0');
+  return pixObject.toBRCode();
 }
 
 /**
@@ -124,10 +118,21 @@ router.post('/', async (req, res) => {
     const identificadorUnico = generateUniqueId();
     
     // Gerar payload PIX com identificador
-    const pixPayload = generatePixPayload(nomeAluno, cpf, identificadorUnico);
+    const pixCode = generatePixWithId(nomeAluno, cpf, identificadorUnico);
+    
+    // Validações de segurança
+    if (!pixCode || pixCode.length < 50) {
+      throw new Error('Código PIX inválido ou muito curto');
+    }
+    
+    if (!pixCode.includes(CHAVE_PIX)) {
+      throw new Error('Chave PIX não encontrada no código gerado');
+    }
+    
+    console.log(`✅ PIX com ID gerado: ${pixCode.length} caracteres`);
     
     // Gerar QR Code
-    const qrCodeBase64 = await QRCode.toDataURL(pixPayload, {
+    const qrCodeBase64 = await QRCode.toDataURL(pixCode, {
       errorCorrectionLevel: 'M',
       type: 'image/png',
       quality: 0.92,
@@ -167,7 +172,7 @@ router.post('/', async (req, res) => {
         chave_pix: CHAVE_PIX,
         descricao: `Livro ${nomeAluno} CPF:${cpfLimpo} ID:${identificadorUnico}`,
         beneficiario: BENEFICIARIO,
-        payload: pixPayload
+        payload: pixCode
       },
       identificador: {
         id: identificadorUnico,
