@@ -46,7 +46,30 @@ const SettingsMenu = ({ isOpen, onClose }: SettingsMenuProps) => {
       apiKey: '',
       model: 'gpt-4',
       agentName: 'EETAD Assistant',
-      systemPrompt: 'Você é um assistente especializado da EETAD (Escola de Educação Teológica das Assembleias de Deus) em Palmas, TO. Ajude os alunos com informações sobre cursos, matrículas, livros e questões acadêmicas. Seja sempre respeitoso, prestativo e use conhecimento bíblico quando apropriado.',
+      systemPrompt: `Olá! Eu sou seu assistente pessoal da EETAD - a Escola de Educação Teológica das Assembleias de Deus aqui em Palmas, TO. 😊
+
+É um prazer falar com você! Estou aqui para tornar sua jornada de formação teológica mais tranquila e especial. Posso te ajudar com:
+
+💫 SOBRE OS CURSOS:
+- Explicar nossos 3 ciclos de formação (do básico ao avançado)
+- Falar sobre as disciplinas bíblicas e teológicas
+- Orientar sobre matrículas e sua progressão acadêmica
+
+❤️ ATENDIMENTO CARINHOSO:
+- Conheço seus dados para um atendimento personalizado
+- Ajudo com pedidos de livros do seu ciclo
+- Esclareço dúvidas sobre pagamentos e prazos
+
+🤝 CONVERSA ACOLHEDORA:
+- Falo com respeito, carinho e sabedoria ministerial
+- Compartilho conhecimento bíblico quando for útil
+- Te direciono para nossa querida secretaria quando necessário
+
+⏰ SEMPRE DISPONÍVEL:
+- Estou aqui 24 horas para você, todos os dias
+- Para coisas urgentes, te oriento a falar direto com a secretaria
+
+Conte comigo para qualquer coisa! Como posso te ajudar hoje na sua caminhada de fé e estudos? 🙏`,
       temperature: 0.7,
       maxTokens: 1000,
       enabled: true
@@ -227,6 +250,32 @@ const SettingsMenu = ({ isOpen, onClose }: SettingsMenuProps) => {
           };
           break;
           
+        case 'anthropic':
+          testUrl = 'https://api.anthropic.com/v1/messages';
+          headers = {
+            'Content-Type': 'application/json',
+            'x-api-key': aiConfig.apiKey,
+            'anthropic-version': '2023-06-01'
+          };
+          body = {
+            model: aiConfig.model,
+            messages: [{ role: 'user', content: testMessage }],
+            max_tokens: 50
+          };
+          break;
+          
+        case 'google':
+          testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${aiConfig.model}:generateContent?key=${aiConfig.apiKey}`;
+          headers = {
+            'Content-Type': 'application/json'
+          };
+          body = {
+            contents: [{
+              parts: [{ text: testMessage }]
+            }]
+          };
+          break;
+          
         default:
           throw new Error('Provedor não suportado para teste');
       }
@@ -243,7 +292,16 @@ const SettingsMenu = ({ isOpen, onClose }: SettingsMenuProps) => {
       }
 
       const result = await response.json();
-      const aiResponse = result.choices?.[0]?.message?.content || 'Resposta recebida com sucesso';
+      let aiResponse = 'Resposta recebida com sucesso';
+      
+      // Padronizar resposta de diferentes provedores
+      if (aiConfig.provider === 'anthropic') {
+        aiResponse = result.content?.[0]?.text || 'Resposta vazia';
+      } else if (aiConfig.provider === 'google') {
+        aiResponse = result.candidates?.[0]?.content?.parts?.[0]?.text || 'Resposta vazia';
+      } else {
+        aiResponse = result.choices?.[0]?.message?.content || 'Resposta vazia';
+      }
 
       toast({
         title: "✅ Conexão Bem-sucedida",
@@ -579,27 +637,35 @@ const SettingsMenu = ({ isOpen, onClose }: SettingsMenuProps) => {
                       >
                         {aiConfig.provider === 'openai' && (
                           <>
+                            <option value="gpt-4o">GPT-4o (Mais Recente)</option>
                             <option value="gpt-4">GPT-4</option>
                             <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                            <option value="gpt-4-turbo-preview">GPT-4 Turbo Preview</option>
                             <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                            <option value="gpt-3.5-turbo-16k">GPT-3.5 Turbo 16K</option>
                           </>
                         )}
                         {aiConfig.provider === 'groq' && (
                           <>
+                            <option value="llama-3.1-70b-versatile">Llama 3.1 70B Versatile</option>
+                            <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
                             <option value="llama3-8b-8192">Llama 3 8B</option>
-                            <option value="llama3-70b-8192">Llama 3 70B</option>
                             <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+                            <option value="gemma-7b-it">Gemma 7B IT</option>
                           </>
                         )}
                         {aiConfig.provider === 'anthropic' && (
                           <>
-                            <option value="claude-3-opus">Claude 3 Opus</option>
-                            <option value="claude-3-sonnet">Claude 3 Sonnet</option>
-                            <option value="claude-3-haiku">Claude 3 Haiku</option>
+                            <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (Mais Recente)</option>
+                            <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                            <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
+                            <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
                           </>
                         )}
                         {aiConfig.provider === 'google' && (
                           <>
+                            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
                             <option value="gemini-pro">Gemini Pro</option>
                             <option value="gemini-pro-vision">Gemini Pro Vision</option>
                           </>
@@ -681,22 +747,27 @@ const SettingsMenu = ({ isOpen, onClose }: SettingsMenuProps) => {
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <h4 className="font-semibold text-blue-800 mb-2">🤖 Funcionalidades do Agente</h4>
                       <ul className="text-sm text-blue-700 space-y-1">
-                        <li>• 💬 Conversações contextuais com memória</li>
-                        <li>• 📚 Ajuda com informações sobre cursos EETAD</li>
-                        <li>• 📝 Suporte para matrículas e livros</li>
-                        <li>• 📱 Integração com WhatsApp</li>
-                        <li>• 📈 Análise de dados de alunos</li>
+                        <li>• 💬 Conversasções contextuais com memória persistente</li>
+                        <li>• 📚 Informações sobre cursos e disciplinas EETAD</li>
+                        <li>• 📝 Suporte personalizado para matrículas</li>
+                        <li>• 📚 Assistência com pedidos de livros por ciclo</li>
+                        <li>• 📱 Integração com notificações WhatsApp</li>
+                        <li>• 📈 Análise contextual de dados de estudantes</li>
+                        <li>• 🚀 Respostas rápidas com sugestões inteligentes</li>
+                        <li>• 🕰️ Atendimento 24/7 para estudantes</li>
                       </ul>
                     </div>
 
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <h4 className="font-semibold text-green-800 mb-2">💡 Dicas para o Prompt</h4>
+                      <h4 className="font-semibold text-green-800 mb-2">💡 Dicas para o Prompt Personalizado</h4>
                       <ul className="text-sm text-green-700 space-y-1">
-                        <li>• Defina a personalidade do agente</li>
-                        <li>• Inclua conhecimento sobre EETAD</li>
-                        <li>• Especifique como responder perguntas</li>
-                        <li>• Use tom respeitoso e educativo</li>
-                        <li>• Inclua conhecimento bíblico se relevante</li>
+                        <li>• 🎭 Defina a personalidade e tom do agente</li>
+                        <li>• 🏢 Inclua conhecimento específico sobre EETAD</li>
+                        <li>• 📝 Especifique como responder perguntas dos alunos</li>
+                        <li>• 🙏 Use tom respeitoso e educativo sempre</li>
+                        <li>• 📜 Incorpore conhecimento bíblico quando relevante</li>
+                        <li>• 🎯 Foque em objetivos educacionais e ministeriais</li>
+                        <li>• 🕰️ Considere horários de atendimento da secretaria</li>
                       </ul>
                     </div>
 

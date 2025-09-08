@@ -131,28 +131,46 @@ const AIChatbot = ({ userId = 'guest', studentData, className = '' }: AIChatbotP
           <ScrollArea className="flex-1 p-4">
             {messages.length === 0 && (
               <div className="text-center text-gray-500 mt-8">
-                <Bot className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                <p className="text-sm">
-                  Olá! Sou o {agentName}. Como posso ajudá-lo hoje?
+                <div className="flex justify-center items-center mb-4">
+                  <Bot className="h-12 w-12 text-green-500 animate-pulse" />
+                  <span className="text-2xl ml-2">😊</span>
+                </div>
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  Olá! Sou o {agentName}. É um prazer te conhecer! ❤️
                 </p>
-                <div className="mt-4 space-y-2">
+                <p className="text-xs text-gray-600 mb-4">
+                  Como posso te abençoar hoje? Aqui estão algumas sugestões carinhosas:
+                </p>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => sendMessage("Olá! Como funciona a EETAD?")}
+                    className="block w-full text-left text-sm text-blue-600 hover:text-blue-800 p-3 hover:bg-blue-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-all"
+                  >
+                    🏢 Olá! Como funciona nossa querida EETAD?
+                  </button>
                   <button
                     onClick={() => sendMessage("Quais cursos estão disponíveis?")}
-                    className="block w-full text-left text-sm text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded"
+                    className="block w-full text-left text-sm text-green-600 hover:text-green-800 p-3 hover:bg-green-50 rounded-lg border border-green-200 hover:border-green-300 transition-all"
                   >
-                    💡 Quais cursos estão disponíveis?
+                    📚 Quais cursos abençoados temos disponíveis?
                   </button>
                   <button
                     onClick={() => sendMessage("Como faço para me matricular?")}
-                    className="block w-full text-left text-sm text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded"
+                    className="block w-full text-left text-sm text-purple-600 hover:text-purple-800 p-3 hover:bg-purple-50 rounded-lg border border-purple-200 hover:border-purple-300 transition-all"
                   >
-                    💡 Como faço para me matricular?
+                    📝 Como posso me matricular com vocês?
                   </button>
                   <button
-                    onClick={() => sendMessage("Quais livros preciso comprar?")}
-                    className="block w-full text-left text-sm text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded"
+                    onClick={() => sendMessage("Preciso de ajuda com livros")}
+                    className="block w-full text-left text-sm text-orange-600 hover:text-orange-800 p-3 hover:bg-orange-50 rounded-lg border border-orange-200 hover:border-orange-300 transition-all"
                   >
-                    💡 Quais livros preciso comprar?
+                    📖 Preciso de uma ajudinha com os livros
+                  </button>
+                  <button
+                    onClick={() => sendMessage("Tenho dúvidas sobre pagamentos")}
+                    className="block w-full text-left text-sm text-indigo-600 hover:text-indigo-800 p-3 hover:bg-indigo-50 rounded-lg border border-indigo-200 hover:border-indigo-300 transition-all"
+                  >
+                    💰 Tenho dúvidas sobre pagamentos
                   </button>
                 </div>
               </div>
@@ -205,7 +223,7 @@ const AIChatbot = ({ userId = 'guest', studentData, className = '' }: AIChatbotP
                 <div className="bg-gray-100 rounded-lg p-3 max-w-[280px]">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-green-600" />
-                    <span className="text-sm text-gray-600">Digitando...</span>
+                    <span className="text-sm text-gray-600">Pensando em como te ajudar melhor... 🙏💭</span>
                   </div>
                 </div>
               </div>
