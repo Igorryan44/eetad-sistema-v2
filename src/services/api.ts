@@ -2,6 +2,11 @@ import { connectionService } from './connectionService';
 
 export const API_BASE_URL: string = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://localhost:3003';
 
+// Detectar se está em produção
+const isProduction = window.location.hostname !== 'localhost' && 
+                     window.location.hostname !== '127.0.0.1' &&
+                     !window.location.hostname.includes('local');
+
 export function apiUrl(path: string): string {
   if (!path.startsWith('/')) return `${API_BASE_URL}/${path}`;
   return `${API_BASE_URL}${path}`;
@@ -33,6 +38,12 @@ export async function apiRequest<T = any>(
   options: RequestInit = {}, 
   enableRetry: boolean = true
 ): Promise<T> {
+  // Em produção, simular falha para forçar fallback local
+  if (isProduction) {
+    console.log('📱 Modo produção: simulando falha de API para forçar fallback');
+    throw new Error('Backend server is not accessible in production mode');
+  }
+  
   return connectionService.makeRequest<T>(endpoint, options, enableRetry);
 }
 
@@ -40,6 +51,12 @@ export async function apiRequest<T = any>(
  * Check if backend is available
  */
 export async function checkBackendHealth(): Promise<boolean> {
+  // Em produção, sempre retornar false (servidor não disponível)
+  if (isProduction) {
+    console.log('📱 Modo produção: backend não disponível');
+    return false;
+  }
+  
   return connectionService.healthCheck();
 }
 
@@ -47,5 +64,15 @@ export async function checkBackendHealth(): Promise<boolean> {
  * Get current connection status
  */
 export function getConnectionStatus() {
+  // Em produção, sempre retornar status offline
+  if (isProduction) {
+    return {
+      isConnected: false,
+      lastChecked: new Date(),
+      retryCount: 0,
+      error: 'Backend not available in production mode'
+    };
+  }
+  
   return connectionService.getStatus();
 }

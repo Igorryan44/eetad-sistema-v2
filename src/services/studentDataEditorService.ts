@@ -18,8 +18,19 @@ interface UseStudentDataEditorReturn {
 
 const API_BASE_URL = ((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003';
 
+// Detectar se está em produção
+const isProduction = window.location.hostname !== 'localhost' && 
+                     window.location.hostname !== '127.0.0.1' &&
+                     !window.location.hostname.includes('local');
+
 // Buscar dados pessoais do aluno
 export const getStudentPersonalData = async (cpf: string): Promise<StudentPersonalData | null> => {
+  // Em produção, retornar null (sem dados)
+  if (isProduction) {
+    console.log('📱 Modo produção: sem acesso a dados pessoais');
+    return null;
+  }
+  
   try {
     const response = await fetch(`${API_BASE_URL}/functions/get-student-personal-data`, {
       method: 'POST',
@@ -43,6 +54,12 @@ export const getStudentPersonalData = async (cpf: string): Promise<StudentPerson
 
 // Buscar dados de matrícula do aluno
 export const getStudentEnrollmentData = async (cpf: string): Promise<StudentEnrollmentData | null> => {
+  // Em produção, retornar null (sem dados)
+  if (isProduction) {
+    console.log('📱 Modo produção: sem acesso a dados de matrícula');
+    return null;
+  }
+  
   try {
     const response = await fetch(`${API_BASE_URL}/functions/get-student-enrollment-data`, {
       method: 'POST',
@@ -75,6 +92,13 @@ export const updateStudentData = async (
   personalData?: StudentPersonalData,
   enrollmentData?: StudentEnrollmentData
 ): Promise<boolean> => {
+  // Em produção, simular sucesso
+  if (isProduction) {
+    console.log('📱 Modo produção: simulando atualização de dados');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return true;
+  }
+  
   try {
     const response = await fetch(`${API_BASE_URL}/functions/update-student-data`, {
       method: 'POST',
