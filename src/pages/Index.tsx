@@ -9,6 +9,7 @@ import RegistrationForm from "@/components/RegistrationForm";
 import BookOrderForm from "@/components/BookOrderForm";
 import CheckoutPage from "@/components/CheckoutPage";
 import { MessageCircle, Sparkles, Users, BookOpen, CreditCard } from "lucide-react";
+import AIChatbot from "@/components/AIChatbot";
 
 export type Student = {
   cpf: string;
@@ -108,28 +109,28 @@ const Index = () => {
               </p>
             </div>
             
-            {/* Botão do assistente virtual modernizado */}
+            {/* Informação sobre o assistente virtual */}
             <div className="mt-6 md:mt-8 px-4">
-              <Button 
-                onClick={() => window.open('/chatbot-test', '_blank')}
-                className="group relative overflow-hidden bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white border-none font-semibold px-6 md:px-8 py-3 md:py-4 rounded-xl shadow-2xl transform transition-all duration-300 hover:scale-105 hover:shadow-emerald-500/25 w-full sm:w-auto"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <div className="relative flex items-center justify-center gap-2 md:gap-3">
-                  {/* Avatar de aluno animado */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 md:p-6 border border-white/20 max-w-md mx-auto">
+                <div className="flex items-center justify-center gap-3 mb-3">
                   <div className="relative">
-                    <div className="w-4 h-4 md:w-5 md:h-5 bg-white rounded-full flex items-center justify-center animate-bounce">
-                      <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 md:w-3 md:h-3 text-emerald-600">
+                    <div className="w-6 h-6 bg-gradient-to-r from-emerald-400 to-green-500 rounded-full flex items-center justify-center">
+                      <svg viewBox="0 0 24 24" className="w-4 h-4 text-white">
                         <path fill="currentColor" d="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z"/>
                       </svg>
                     </div>
-                    {/* Indicador de atividade */}
-                    <div className="absolute -top-1 -right-1 w-1.5 h-1.5 md:w-2 md:h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
                   </div>
-                  <span className="text-base md:text-lg">Assistente EETAD</span>
-                  <Sparkles className="h-3 md:h-4 w-3 md:w-4 opacity-70 group-hover:opacity-100 transition-opacity" />
+                  <h3 className="text-lg font-semibold text-white">Assistente EETAD</h3>
+                  <Sparkles className="h-5 w-5 text-emerald-300 animate-pulse" />
                 </div>
-              </Button>
+                <p className="text-sm text-emerald-100/80 text-center mb-2">
+                  💬 Precisa de ajuda? Nosso assistente virtual está disponível no canto inferior direito
+                </p>
+                <p className="text-xs text-white/60 text-center">
+                  Clique no ícone verde para tirar dúvidas sobre cursos, matrículas e livros
+                </p>
+              </div>
             </div>
 
             {/* Indicadores de progresso */}
@@ -212,6 +213,12 @@ const Index = () => {
           </div>
         </div>
       </div>
+      
+      {/* AI Chatbot */}
+      <AIChatbot 
+        userId={currentStudent?.cpf || 'guest'}
+        studentData={currentStudent}
+      />
     </div>
   );
 };

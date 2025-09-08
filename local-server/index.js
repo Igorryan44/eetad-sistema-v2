@@ -24,6 +24,7 @@ import sendWhatsappNotification from './functions/send-whatsapp-notification.js'
 import getStudentPersonalData from './functions/get-student-personal-data.js';
 import getStudentBooks from './functions/get-student-books.js';
 import getStudentEnrollmentData from './functions/get-student-enrollment-data.js';
+import saveSettings from './functions/save-settings.js';
 import updateStudentData from './functions/update-student-data.js';
 import debugSheetData from './functions/debug-sheet-data.js';
 import saveBookOrder from './functions/save-book-order.js';
@@ -107,10 +108,14 @@ const defaultOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002',
+  'http://localhost:4173',
+  'http://localhost:4174',
   'http://localhost:5173',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:3001',
   'http://127.0.0.1:3002',
+  'http://127.0.0.1:4173',
+  'http://127.0.0.1:4174',
   'http://127.0.0.1:5173',
   'https://eetad-sistema-v2.vercel.app'
 ];
@@ -397,9 +402,8 @@ app.use('/functions/check-payment-status', checkPaymentStatus);
 app.use('/functions/mercadopago-webhook', mercadoPagoWebhook);
 app.use('/functions/manage-secretary-users', manageSecretaryUsers);
 app.use('/functions/ai-chatbot', aiChatbot);
-app.use('/functions/cancel-order', cancelOrder);
-app.use('/functions/send-email-notification', sendEmailNotification);
-app.use('/functions/get-book-orders-by-cpf-book-observacao', getBookOrdersByCpfBookObservacao);
+app.use('/functions/save-settings', saveSettings);
+app.use('/api/save-settings', saveSettings);
 app.use('/functions/send-whatsapp-notification', sendWhatsappNotification);
 app.use('/functions/get-student-personal-data', getStudentPersonalData);
 app.use('/functions/get-student-books', getStudentBooks);

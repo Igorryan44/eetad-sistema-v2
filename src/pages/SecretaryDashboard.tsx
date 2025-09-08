@@ -8,12 +8,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Calendar, FileText, Download, Eye, Users, BookOpen, GraduationCap, AlertCircle, Loader2, LogOut, Shield, CheckCircle, XCircle, Edit } from 'lucide-react';
+import { Calendar, FileText, Download, Eye, Users, BookOpen, GraduationCap, AlertCircle, Loader2, LogOut, Shield, CheckCircle, XCircle, Edit, Settings } from 'lucide-react';
 import AuthenticationSystem from '../components/AuthenticationSystem';
 import UserManagement from '../components/UserManagement';
 import PendingStudentsManager from '../components/PendingStudentsManager';
 import StudentDataEditor from '../components/StudentDataEditor';
 import CreateSecretaryAccount from '../components/CreateSecretaryAccount';
+import SettingsMenu from '../components/SettingsMenu';
 import { authService } from '../services/authService';
 import { usePendingStudents } from '@/services/pendingStudentsService';
 import { useApprovedStudents } from '@/services/approvedStudentsService';
@@ -65,6 +66,7 @@ const SecretaryDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showCreateAccount, setShowCreateAccount] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   
   // Estados para filtros de relatórios
   const [startDate, setStartDate] = useState('');
@@ -282,27 +284,15 @@ const SecretaryDashboard = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {/* Botão Gerenciamento de Usuários */}
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="flex items-center gap-2 border-2 border-purple-200 hover:border-purple-300 hover:bg-purple-50 transition-all duration-200"
-                  >
-                    <Shield className="h-4 w-4" />
-                    Gerenciar Usuários
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[85vh]">
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                      <Shield className="h-5 w-5" />
-                      Gerenciamento de Usuários
-                    </DialogTitle>
-                  </DialogHeader>
-                  <UserManagement />
-                </DialogContent>
-              </Dialog>
+              {/* Botão Configurações */}
+              <Button
+                variant="outline"
+                onClick={() => setShowSettingsMenu(true)}
+                className="flex items-center gap-2 border-2 border-purple-200 hover:border-purple-300 hover:bg-purple-50 transition-all duration-200"
+              >
+                <Settings className="h-4 w-4" />
+                Configurações
+              </Button>
               
               {/* Botão Sair */}
               <Button
@@ -595,6 +585,11 @@ const SecretaryDashboard = () => {
           </CardContent>
         </Card>
 
+        {/* Settings Menu */}
+        <SettingsMenu 
+          isOpen={showSettingsMenu} 
+          onClose={() => setShowSettingsMenu(false)} 
+        />
 
       </div>
     </div>

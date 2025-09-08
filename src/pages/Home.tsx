@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Bot } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import AIChatbot from '@/components/AIChatbot';
 
 const Home = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -204,6 +205,9 @@ const Home = () => {
           </div>
         </div>
       </section>
+      
+      {/* AI Chatbot */}
+      <AIChatbot userId="home-visitor" />
     </div>
   );
 };

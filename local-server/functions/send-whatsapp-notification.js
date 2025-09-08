@@ -1,12 +1,36 @@
 /**
  * 📱 Função: send-whatsapp-notification
  * Envia notificações via WhatsApp usando Evolution API
+ * Configuração via localStorage (menu Configurações) ou fallback para .env
  */
 
 import { Router } from 'express';
 import fetch from 'node-fetch';
+import fs from 'fs';
+import path from 'path';
 
 const router = Router();
+
+// Função para ler configurações do localStorage (salvas via frontend)
+function getStoredConfig() {
+  try {
+    // Caminho para arquivo de configurações salvas pelo frontend
+    const configPath = path.join(process.cwd(), 'config', 'settings.json');
+    
+    if (fs.existsSync(configPath)) {
+      const configData = fs.readFileSync(configPath, 'utf8');
+      const settings = JSON.parse(configData);
+      return {
+        whatsappConfig: settings.whatsappConfig || null,
+        secretaryInfo: settings.secretaryInfo || null,
+        aiConfig: settings.aiConfig || null
+      };
+    }
+  } catch (error) {
+    console.log('📱 [send-whatsapp-notification] Erro ao ler configurações salvas:', error.message);
+  }
+  return { whatsappConfig: null, secretaryInfo: null, aiConfig: null };
+}
 
 router.post('/', async (req, res) => {
   try {
@@ -14,28 +38,34 @@ router.post('/', async (req, res) => {
     
     const notification = req.body;
     
-    const evolutionApiUrl = process.env.EVOLUTION_API_URL;
-    const evolutionApiKey = process.env.EVOLUTION_API_KEY;
-    const instanceName = process.env.EVOLUTION_INSTANCE_NAME;
-    const secretaryWhatsApp = process.env.SECRETARY_WHATSAPP_NUMBER;
+    // Tentar ler configurações salvas no menu Configurações
+    const storedConfig = getStoredConfig();
+    
+    // Prioridade: Configurações do menu > Variáveis de ambiente
+    const evolutionApiUrl = storedConfig.whatsappConfig?.url || process.env.EVOLUTION_API_URL;
+    const evolutionApiKey = storedConfig.whatsappConfig?.apiKey || process.env.EVOLUTION_API_KEY;
+    const instanceName = storedConfig.whatsappConfig?.instance || process.env.EVOLUTION_INSTANCE_NAME;
+    const secretaryWhatsApp = storedConfig.secretaryInfo?.phone || process.env.SECRETARY_WHATSAPP_NUMBER;
 
-    console.log("📱 [send-whatsapp-notification] Verificando variáveis de ambiente:", {
+    console.log("📱 [send-whatsapp-notification] Verificando configurações:", {
       evolutionApiUrl: evolutionApiUrl ? "✓ Configurada" : "✗ Não configurada",
       evolutionApiKey: evolutionApiKey ? "✓ Configurada" : "✗ Não configurada",
       instanceName: instanceName ? "✓ Configurada" : "✗ Não configurada",
       secretaryWhatsApp: secretaryWhatsApp ? "✓ Configurada" : "✗ Não configurada",
+      fonte: storedConfig.whatsappConfig ? "Menu Configurações" : "Variáveis de ambiente"
     });
 
     if (!evolutionApiUrl || !evolutionApiKey || !instanceName || !secretaryWhatsApp) {
-      console.error("📱 [send-whatsapp-notification] Variáveis de ambiente faltando");
+      console.error("📱 [send-whatsapp-notification] Configurações faltando");
       return res.status(500).json({ 
-        error: 'Configuração incompleta: verifique as variáveis de ambiente',
+        error: 'Configuração incompleta: verifique as configurações no menu Configurações ou variáveis de ambiente',
         missing: {
           evolutionApiUrl: !evolutionApiUrl,
           evolutionApiKey: !evolutionApiKey,
           instanceName: !instanceName,
           secretaryWhatsApp: !secretaryWhatsApp
-        }
+        },
+        hint: 'Configure o WhatsApp Evolution API no menu Configurações da Secretaria'
       });
     }
 
@@ -154,14 +184,20 @@ Que Deus abençoe seus estudos! 🙏`;
         throw new Error(`Tipo de notificação não suportado: ${notification.type}`);
     }
 
-    // Normalizar URL da Evolution API
+    // Normalizar URL da Evolution API e tentar diferentes formatos de endpoint
     const baseUrl = evolutionApiUrl.replace(/\/$/, '');
-    const endpoint = `${baseUrl}/message/sendText/${encodeURIComponent(instanceName)}`;
+    const endpoints = [
+      `${baseUrl}/message/sendText/${encodeURIComponent(instanceName)}`,
+      `${baseUrl}/message/text/${encodeURIComponent(instanceName)}`,
+      `${baseUrl}/sendMessage/${encodeURIComponent(instanceName)}`,
+      `${baseUrl}/${encodeURIComponent(instanceName)}/sendText`,
+      `${baseUrl}/api/v1/message/sendText/${encodeURIComponent(instanceName)}`
+    ];
 
     console.log("📱 [send-whatsapp-notification] Tentando conectar com Evolution API:", {
-      endpoint,
       instanceName,
-      recipient
+      recipient,
+      endpointsToTry: endpoints.length
     });
 
     const whatsappPayload = {
@@ -173,77 +209,95 @@ Que Deus abençoe seus estudos! 🙏`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos timeout
 
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': evolutionApiKey,
-          'User-Agent': 'Local-Server/1.0'
-        },
-        body: JSON.stringify(whatsappPayload),
-        signal: controller.signal
-      });
+    let lastError = null;
+    let successfulEndpoint = null;
 
-      clearTimeout(timeoutId);
+    // Tentar diferentes endpoints até encontrar um que funcione
+    for (let i = 0; i < endpoints.length; i++) {
+      const endpoint = endpoints[i];
+      
+      try {
+        console.log(`📱 [send-whatsapp-notification] Tentativa ${i + 1}/${endpoints.length}: ${endpoint}`);
+        
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': evolutionApiKey,
+            'User-Agent': 'Local-Server/1.0'
+          },
+          body: JSON.stringify(whatsappPayload),
+          signal: controller.signal
+        });
 
-      console.log("📱 [send-whatsapp-notification] Resposta da Evolution API:", {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("📱 [send-whatsapp-notification] Erro na resposta da Evolution API:", {
+        console.log(`📱 [send-whatsapp-notification] Resposta do endpoint ${i + 1}:`, {
+          endpoint,
           status: response.status,
           statusText: response.statusText,
-          body: errorText
+          ok: response.ok
+        });
+
+        if (response.ok) {
+          clearTimeout(timeoutId);
+          
+          const result = await response.json();
+          console.log('📱 [send-whatsapp-notification] WhatsApp enviado com sucesso:', result);
+          successfulEndpoint = endpoint;
+
+          return res.json({ 
+            success: true, 
+            message: 'WhatsApp enviado com sucesso',
+            endpoint: successfulEndpoint,
+            result 
+          });
+        } else {
+          const errorText = await response.text();
+          lastError = {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorText,
+            endpoint
+          };
+          console.log(`📱 [send-whatsapp-notification] Endpoint ${i + 1} falhou:`, lastError);
+        }
+        
+      } catch (endpointError) {
+        console.log(`📱 [send-whatsapp-notification] Erro no endpoint ${i + 1}:`, {
+          endpoint,
+          error: endpointError.message,
+          name: endpointError.name
         });
         
-        // Retornar sucesso parcial em vez de erro total
-        return res.json({ 
-          success: false, 
-          warning: `Falha ao enviar WhatsApp (${response.status}): ${response.statusText}`,
-          details: errorText
-        });
+        lastError = {
+          error: endpointError.message,
+          name: endpointError.name,
+          endpoint
+        };
+        
+        // Se for timeout, parar de tentar outros endpoints
+        if (endpointError.name === 'AbortError') {
+          clearTimeout(timeoutId);
+          return res.json({ 
+            success: false, 
+            warning: 'Timeout ao conectar com Evolution API (30s)',
+            error: 'TIMEOUT',
+            triedEndpoints: endpoints.slice(0, i + 1)
+          });
+        }
       }
-
-      const result = await response.json();
-      console.log('📱 [send-whatsapp-notification] WhatsApp enviado com sucesso:', result);
-
-      res.json({ 
-        success: true, 
-        message: 'WhatsApp enviado com sucesso',
-        result 
-      });
-
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      
-      console.error('📱 [send-whatsapp-notification] Erro de conexão com Evolution API:', {
-        error: fetchError.message,
-        name: fetchError.name,
-        endpoint
-      });
-
-      // Verificar se é erro de timeout
-      if (fetchError.name === 'AbortError') {
-        return res.json({ 
-          success: false, 
-          warning: 'Timeout ao conectar com Evolution API (30s)',
-          error: 'TIMEOUT'
-        });
-      }
-
-      // Outros erros de rede
-      res.json({ 
-        success: false, 
-        warning: 'Falha na conexão com Evolution API',
-        error: fetchError.message,
-        endpoint
-      });
     }
+    
+    // Se chegou aqui, nenhum endpoint funcionou
+    clearTimeout(timeoutId);
+    
+    console.error('📱 [send-whatsapp-notification] Todos os endpoints falharam:', lastError);
+    
+    return res.json({ 
+      success: false, 
+      warning: 'Falha ao conectar com todos os endpoints da Evolution API',
+      error: lastError,
+      triedEndpoints: endpoints
+    });
 
   } catch (error) {
     console.error('📱 [send-whatsapp-notification] Erro geral:', error);
