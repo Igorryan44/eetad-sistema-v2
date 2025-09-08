@@ -27,8 +27,16 @@ class AuthService {
   private readonly SESSION_KEY = 'eetad_secretary_session';
   private readonly LOCAL_SERVER_URL = ((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003';
   private currentUser: SecretaryUser | null = null;
+  private isProduction: boolean;
 
   constructor() {
+    // Detectar se está em produção
+    this.isProduction = window.location.hostname !== 'localhost' && 
+                        window.location.hostname !== '127.0.0.1' &&
+                        !window.location.hostname.includes('local');
+                        
+    console.log('🌍 Ambiente detectado:', this.isProduction ? 'PRODUÇÃO' : 'DESENVOLVIMENTO');
+    
     this.loadSession();
     this.ensureDefaultUser();
   }
@@ -223,6 +231,12 @@ class AuthService {
 
   // Obter todos os usuários
   async getUsers(): Promise<{ success: boolean; users?: any[]; message?: string }> {
+    // Em produção, usar apenas localStorage
+    if (this.isProduction) {
+      console.log('📱 Modo produção: usando localStorage');
+      return this.handleLocalStorageOperation({ action: 'list' });
+    }
+
     try {
       const response = await fetch(`${this.LOCAL_SERVER_URL}/functions/manage-secretary-users`, {
         method: 'POST',
@@ -261,6 +275,21 @@ class AuthService {
 
       if (userData.username.length < 3) {
         throw new Error('Nome de usuário deve ter pelo menos 3 caracteres');
+      }
+
+      // Em produção, usar apenas localStorage
+      if (this.isProduction) {
+        console.log('📱 Modo produção: criando conta via localStorage');
+        const result = this.handleLocalStorageOperation({
+          action: 'create',
+          userData: userData
+        });
+
+        if (!result.success) {
+          throw new Error(result.error || 'Erro ao criar conta');
+        }
+
+        return true;
       }
 
       const response = await fetch(`${this.LOCAL_SERVER_URL}/functions/manage-secretary-users`, {
@@ -304,6 +333,32 @@ class AuthService {
   async login(credentials: LoginCredentials): Promise<boolean> {
     try {
       console.log('🔐 Iniciando processo de login para:', credentials.username);
+      
+      // Em produção, usar apenas localStorage
+      if (this.isProduction) {
+        console.log('📱 Modo produção: usando localStorage para login');
+        const localResult = this.handleLocalStorageOperation({
+          action: 'login',
+          username: credentials.username,
+          password: credentials.password
+        });
+
+        if (localResult.success && localResult.user) {
+          // Criar sessão (válida por 8 horas)
+          const session = {
+            user: localResult.user,
+            expiresAt: Date.now() + (8 * 60 * 60 * 1000) // 8 horas
+          };
+
+          localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
+          this.currentUser = localResult.user;
+          console.log('✅ Login bem-sucedido via localStorage (produção)');
+          return true;
+        }
+        
+        console.log('❌ Login falhou (produção)');
+        return false;
+      }
       
       const response = await fetch(`${this.LOCAL_SERVER_URL}/functions/manage-secretary-users`, {
         method: 'POST',
