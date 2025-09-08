@@ -95,6 +95,8 @@ class AuthService {
           const users = localStorage.getItem(STORAGE_KEY);
           const userList = users ? JSON.parse(users) : [];
           
+          console.log('🔍 Tentativa de login local:', { username: data.username, totalUsers: userList.length });
+          
           // Se não há usuários, criar o usuário padrão
           if (userList.length === 0) {
             const defaultUser = {
@@ -107,21 +109,26 @@ class AuthService {
             };
             userList.push(defaultUser);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(userList));
+            console.log('✅ Usuário padrão Admin criado');
           }
 
           const user = userList.find((u: any) => u.username === data.username);
           
           if (user) {
             const inputPasswordHash = this.hashPassword(data.password);
+            console.log('🔑 Verificando senha para:', data.username);
             
             if (user.passwordHash === inputPasswordHash) {
               user.lastLogin = new Date().toISOString();
               localStorage.setItem(STORAGE_KEY, JSON.stringify(userList));
+              console.log('✅ Login bem-sucedido para:', data.username);
               return { success: true, user };
             } else {
+              console.log('❌ Senha incorreta para:', data.username);
               return { success: false, error: 'Credenciais inválidas' };
             }
           } else {
+            console.log('❌ Usuário não encontrado:', data.username);
             return { success: false, error: 'Usuário não encontrado' };
           }
         } catch (error) {
@@ -166,7 +173,7 @@ class AuthService {
 
   // Carregar sessão ativa
   private loadSession(): void {
-    const session = localStorage.getItem('auth_session');
+    const session = localStorage.getItem(this.SESSION_KEY);
     
     if (session) {
       try {
@@ -296,7 +303,7 @@ class AuthService {
   // Fazer login
   async login(credentials: LoginCredentials): Promise<boolean> {
     try {
-
+      console.log('🔐 Iniciando processo de login para:', credentials.username);
       
       const response = await fetch(`${this.LOCAL_SERVER_URL}/functions/manage-secretary-users`, {
         method: 'POST',
@@ -312,7 +319,7 @@ class AuthService {
 
       if (response.ok) {
         const result = await response.json();
-
+        console.log('🌐 Resposta do servidor:', result);
         
         if (result.success && result.user) {
           // Criar sessão (válida por 8 horas)
@@ -323,58 +330,15 @@ class AuthService {
 
           localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
           this.currentUser = result.user;
+          console.log('✅ Login bem-sucedido via servidor');
           return true;
         }
-        
-
-        // Fallback para localStorage
-        const localResult = this.handleLocalStorageOperation({
-          action: 'login',
-          username: credentials.username,
-          password: credentials.password
-        });
-
-        if (localResult.success && localResult.user) {
-          // Criar sessão (válida por 8 horas)
-          const session = {
-            user: localResult.user,
-            expiresAt: Date.now() + (8 * 60 * 60 * 1000) // 8 horas
-          };
-
-          localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
-          this.currentUser = localResult.user;
-          return true;
-        }
-        
-
-        return false;
       } else {
-        console.error('❌ AuthService: Erro HTTP do servidor local:', response.status, response.statusText);
-        // Fallback para localStorage
-        const localResult = this.handleLocalStorageOperation({
-          action: 'login',
-          username: credentials.username,
-          password: credentials.password
-        });
-
-        if (localResult.success && localResult.user) {
-          // Criar sessão (válida por 8 horas)
-          const session = {
-            user: localResult.user,
-            expiresAt: Date.now() + (8 * 60 * 60 * 1000) // 8 horas
-          };
-
-          localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
-          this.currentUser = localResult.user;
-          return true;
-        }
-        
-
-        return false;
+        console.warn('⚠️ Servidor não disponível, usando fallback local');
       }
-    } catch (error) {
-      console.error('❌ AuthService: Erro de conexão com servidor local:', error);
+
       // Fallback para localStorage
+      console.log('💾 Tentando login via localStorage...');
       const localResult = this.handleLocalStorageOperation({
         action: 'login',
         username: credentials.username,
@@ -390,10 +354,36 @@ class AuthService {
 
         localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
         this.currentUser = localResult.user;
+        console.log('✅ Login bem-sucedido via localStorage');
         return true;
       }
       
+      console.log('❌ Login falhou');
+      return false;
+    } catch (error) {
+      console.error('❌ AuthService: Erro de conexão, tentando localStorage:', error);
+      
+      // Fallback para localStorage em caso de erro
+      const localResult = this.handleLocalStorageOperation({
+        action: 'login',
+        username: credentials.username,
+        password: credentials.password
+      });
 
+      if (localResult.success && localResult.user) {
+        // Criar sessão (válida por 8 horas)
+        const session = {
+          user: localResult.user,
+          expiresAt: Date.now() + (8 * 60 * 60 * 1000) // 8 horas
+        };
+
+        localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
+        this.currentUser = localResult.user;
+        console.log('✅ Login bem-sucedido via localStorage (fallback)');
+        return true;
+      }
+      
+      console.log('❌ Todos os métodos de login falharam');
       return false;
     }
   }

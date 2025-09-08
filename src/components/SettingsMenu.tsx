@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from '@/hooks/use-toast';
 import { Settings, MessageSquare, Phone, Mail, User, Shield, Smartphone, Globe, Bot, Cpu, Zap } from 'lucide-react';
 import UserManagement from './UserManagement';
+import WhatsAppOpener from './WhatsAppOpener';
 
 interface SettingsMenuProps {
   isOpen: boolean;
@@ -97,13 +98,38 @@ Conte comigo para qualquer coisa! Como posso te ajudar hoje na sua caminhada de 
 
   const [activeTab, setActiveTab] = useState('users');
 
+  // Função para limpar configurações obsoletas
+  const fixDeprecatedModels = () => {
+    const savedAi = localStorage.getItem('eetad_ai_config');
+    if (savedAi) {
+      const config = JSON.parse(savedAi);
+      if (config.model === 'llama3-8b-8192' || config.model === 'llama3-70b-8192') {
+        config.model = 'llama-3.1-70b-versatile';
+        localStorage.setItem('eetad_ai_config', JSON.stringify(config));
+        setAiConfig(config);
+        console.log('⚙️ Modelo descontinuado corrigido automaticamente');
+        toast({
+          title: "Modelo Atualizado",
+          description: "Modelo descontinuado foi automaticamente corrigido para llama-3.1-70b-versatile"
+        });
+      }
+    }
+  };
+
+  // Executar verificação ao abrir o menu
+  useEffect(() => {
+    if (isOpen) {
+      fixDeprecatedModels();
+    }
+  }, [isOpen]);
+
   const handleAISave = async () => {
     try {
       // Salvar no localStorage (para o frontend)
       localStorage.setItem('eetad_ai_config', JSON.stringify(aiConfig));
       
       // Salvar no backend (para o servidor local)
-      const response = await fetch('/api/save-settings', {
+      const response = await fetch(`${((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003'}/functions/save-settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -118,9 +144,29 @@ Conte comigo para qualquer coisa! Como posso te ajudar hoje na sua caminhada de 
         return { ok: false };
       });
       
+      // Atualizar arquivo .env com a nova API key
+      try {
+        const envResponse = await fetch(`${((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003'}/functions/update-env-config`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            aiConfig: aiConfig
+          })
+        });
+        
+        if (envResponse.ok) {
+          const envResult = await envResponse.json();
+          console.log('⚙️ Arquivo .env atualizado:', envResult.updatedKeys);
+        }
+      } catch (envError) {
+        console.log('⚠️ Não foi possível atualizar o .env:', envError);
+      }
+      
       toast({
         title: "Sucesso",
-        description: "Configurações do Agente IA salvas com sucesso!"
+        description: "Configurações do Agente IA salvas com sucesso! O arquivo .env foi atualizado automaticamente."
       });
     } catch (error) {
       toast({
@@ -137,7 +183,7 @@ Conte comigo para qualquer coisa! Como posso te ajudar hoje na sua caminhada de 
       localStorage.setItem('eetad_whatsapp_config', JSON.stringify(whatsappConfig));
       
       // Salvar no backend (para o servidor local)
-      const response = await fetch('/api/save-settings', {
+      const response = await fetch(`${((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003'}/functions/save-settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -153,9 +199,29 @@ Conte comigo para qualquer coisa! Como posso te ajudar hoje na sua caminhada de 
         return { ok: false };
       });
       
+      // Atualizar arquivo .env com as novas configurações do WhatsApp
+      try {
+        const envResponse = await fetch(`${((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003'}/functions/update-env-config`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            whatsappConfig: whatsappConfig
+          })
+        });
+        
+        if (envResponse.ok) {
+          const envResult = await envResponse.json();
+          console.log('⚙️ Arquivo .env atualizado:', envResult.updatedKeys);
+        }
+      } catch (envError) {
+        console.log('⚠️ Não foi possível atualizar o .env:', envError);
+      }
+      
       toast({
         title: "Sucesso",
-        description: "Configurações do WhatsApp salvas com sucesso!"
+        description: "Configurações do WhatsApp salvas com sucesso! O arquivo .env foi atualizado automaticamente."
       });
     } catch (error) {
       toast({
@@ -172,7 +238,7 @@ Conte comigo para qualquer coisa! Como posso te ajudar hoje na sua caminhada de 
       localStorage.setItem('eetad_secretary_info', JSON.stringify(secretaryInfo));
       
       // Salvar no backend (para o servidor local)
-      const response = await fetch('/api/save-settings', {
+      const response = await fetch(`${((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003'}/functions/save-settings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -588,6 +654,12 @@ Conte comigo para qualquer coisa! Como posso te ajudar hoje na sua caminhada de 
                   >
                     Testar Conexão
                   </Button>
+                  <WhatsAppOpener
+                    phone={secretaryInfo.phone}
+                    message="Olá! Teste de abertura do WhatsApp pelo sistema EETAD."
+                    variant="outline"
+                    className="border-2 border-green-200 hover:border-green-300 hover:bg-green-50"
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -638,6 +710,7 @@ Conte comigo para qualquer coisa! Como posso te ajudar hoje na sua caminhada de 
                         {aiConfig.provider === 'openai' && (
                           <>
                             <option value="gpt-4o">GPT-4o (Mais Recente)</option>
+                            <option value="gpt-4o-mini">GPT-4o Mini (Rápido e Econômico)</option>
                             <option value="gpt-4">GPT-4</option>
                             <option value="gpt-4-turbo">GPT-4 Turbo</option>
                             <option value="gpt-4-turbo-preview">GPT-4 Turbo Preview</option>
@@ -649,7 +722,6 @@ Conte comigo para qualquer coisa! Como posso te ajudar hoje na sua caminhada de 
                           <>
                             <option value="llama-3.1-70b-versatile">Llama 3.1 70B Versatile</option>
                             <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
-                            <option value="llama3-8b-8192">Llama 3 8B</option>
                             <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
                             <option value="gemma-7b-it">Gemma 7B IT</option>
                           </>

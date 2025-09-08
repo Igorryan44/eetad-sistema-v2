@@ -23,3 +23,14 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Sensitive configuration files
+config/settings.json
+local-server/.env
+local-server/config/conversations/
+config/conversations/
+
+# API Keys and sensitive data
+*.key
+*.json.backup
+secrets/

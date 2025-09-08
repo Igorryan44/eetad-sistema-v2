@@ -66,6 +66,9 @@ import listSheetTabs from './functions/list-sheet-tabs.js';
 import checkPedidosHeaders from './functions/check-pedidos-headers.js';
 import checkPagamentosHeaders from './functions/check-pagamentos-headers.js';
 import createPagamentosHeaders from './functions/create-pagamentos-headers.js';
+import updateEnvConfig from './functions/update-env-config.js';
+import aiDataQuery from './functions/ai-data-query.js';
+import whatsappWebhook from './functions/whatsapp-webhook.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -449,6 +452,9 @@ app.use('/functions/list-sheet-tabs', listSheetTabs);
 app.use('/functions/check-pedidos-headers', checkPedidosHeaders);
 app.use('/functions/check-pagamentos-headers', checkPagamentosHeaders);
 app.use('/functions/create-pagamentos-headers', createPagamentosHeaders);
+app.use('/functions/update-env-config', updateEnvConfig);
+app.use('/functions/ai-data-query', aiDataQuery);
+app.use('/functions/whatsapp-webhook', whatsappWebhook);
 
 // Middleware de tratamento de erros
 app.use((err, req, res, next) => {

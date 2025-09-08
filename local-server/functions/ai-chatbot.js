@@ -16,10 +16,20 @@ const conversationCache = new Map();
 // Função para ler configurações do AI
 function getAIConfig() {
   try {
-    const configPath = path.join(process.cwd(), 'config', 'settings.json');
+    // Tentar primeiro no diretório raiz do projeto (onde as configurações são salvas)
+    const configPath = path.join(process.cwd(), '..', 'config', 'settings.json');
     
     if (fs.existsSync(configPath)) {
       const configData = fs.readFileSync(configPath, 'utf8');
+      const settings = JSON.parse(configData);
+      return settings.aiConfig || null;
+    }
+    
+    // Fallback: tentar no diretório local-server/config
+    const localConfigPath = path.join(process.cwd(), 'config', 'settings.json');
+    
+    if (fs.existsSync(localConfigPath)) {
+      const configData = fs.readFileSync(localConfigPath, 'utf8');
       const settings = JSON.parse(configData);
       return settings.aiConfig || null;
     }
@@ -98,7 +108,7 @@ async function callAIProvider(aiConfig, messages) {
         'Authorization': `Bearer ${aiConfig.apiKey}`
       };
       body = {
-        model: aiConfig.model || 'llama3-8b-8192',
+        model: aiConfig.model || 'llama-3.1-70b-versatile',
         messages: messages,
         temperature: aiConfig.temperature || 0.7,
         max_tokens: aiConfig.maxTokens || 1000
@@ -186,6 +196,36 @@ router.post('/', async (req, res) => {
     // Carregar contexto de conversa existente
     let conversationContext = loadConversationContext(userId);
     
+    // Buscar dados completos do aluno se userId for um CPF válido
+    let studentCompleteData = null;
+    if (userId && userId.length >= 11) {
+      try {
+        console.log('🔍 [ai-chatbot] Buscando dados do aluno no Google Sheets...');
+        const dataQueryResponse = await fetch('http://localhost:3003/functions/ai-data-query', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ cpf: userId })
+        });
+        
+        if (dataQueryResponse.ok) {
+          const dataResult = await dataQueryResponse.json();
+          if (dataResult.success) {
+            studentCompleteData = dataResult.data;
+            console.log('✅ [ai-chatbot] Dados do aluno carregados:', {
+              nome: studentCompleteData.resumo.dadosBasicos?.nome,
+              ciclo: studentCompleteData.resumo.situacaoAcademica.cicloAtual,
+              totalPedidos: studentCompleteData.resumo.pedidosLivros.totalPedidos,
+              pagamentosPendentes: studentCompleteData.resumo.situacaoFinanceira.pagamentosPendentes
+            });
+          }
+        }
+      } catch (error) {
+        console.log('⚠️ [ai-chatbot] Erro ao buscar dados do aluno:', error.message);
+      }
+    }
+    
     // Atualizar dados do estudante se fornecidos
     if (studentData) {
       conversationContext.studentData = studentData;
@@ -193,19 +233,69 @@ router.post('/', async (req, res) => {
     
     // Criar prompt do sistema com contexto humanizado
     const currentTime = new Date().toLocaleString('pt-BR', { timeZone: 'America/Araguaina' });
-    const systemPrompt = `${aiConfig.systemPrompt}
+    
+    // Preparar informações do aluno com dados consultados
+    let studentInfo = '';
+    if (studentCompleteData && studentCompleteData.resumo.dadosBasicos) {
+      const dados = studentCompleteData.resumo.dadosBasicos;
+      const situacao = studentCompleteData.resumo.situacaoAcademica;
+      const livros = studentCompleteData.resumo.pedidosLivros;
+      const financeiro = studentCompleteData.resumo.situacaoFinanceira;
+      
+      studentInfo = `
+👤 DADOS COMPLETOS DO ALUNO (consultados do Google Sheets):
+Olá, ${dados.nome}! 😊 Que alegria conversar contigo!
+- 🏷️ Nome: ${dados.nome}
+- 🆔 CPF: ${dados.cpf}
+- 📞 Telefone: ${dados.telefone}
+- 📧 Email: ${dados.email}
+- ⛪ Congregação: ${dados.congregacao}
+- 📊 Status: ${dados.status}
 
-🕰️ AGORA SÃO: ${currentTime} em Palmas, TO
+🎓 SITUAÇÃO ACADÊmica:
+- 📚 Ciclo Atual: ${situacao.cicloAtual}
+- 🏢 Núcleo: ${situacao.nucleoAtual}
+- 📈 Total de Matrículas: ${situacao.totalMatriculas}
+- ✅ Matrículas Ativas: ${situacao.matriculasAtivas}
 
+📚 PEDIDOS DE LIVROS:
+- 📅 Total de Pedidos: ${livros.totalPedidos}
+- ⏳ Pendentes: ${livros.pedidosPendentes}
+- ✅ Pagos: ${livros.pedidosPagos}${livros.ultimoPedido ? `
+- 📚 Último Pedido: ${livros.ultimoPedido.livro} (${livros.ultimoPedido.status})` : ''}
+
+📋 LISTA COMPLETA DOS PEDIDOS:
+${studentCompleteData.completo.pedidos.map((pedido, index) => `${index + 1}. **${pedido.livro}**
+   - Data: ${pedido.dataPedido}
+   - Status: ${pedido.statusPedido}
+   - Referência: ${pedido.externalReference}
+   - Observação: ${pedido.observacao}`).join('\n')}
+
+💰 SITUAÇÃO FINANCEIRA:
+- 📈 Total de Transações: ${financeiro.totalTransacoes}
+- ⏳ Pagamentos Pendentes: ${financeiro.pagamentosPendentes}
+- ✅ Pagamentos Confirmados: ${financeiro.pagamentosConfirmados}
+- 💵 Valor Total: R$ ${financeiro.valorTotal.toFixed(2)}
+
+🙏 Oro para que Deus continue te abençoando nesta jornada!`;
+    } else if (conversationContext.studentData) {
+      studentInfo = `
 👤 SOBRE VOCÊ:
-${conversationContext.studentData ? `
 Olá, ${conversationContext.studentData.nome || 'querido(a) estudante'}! 😊 Que alegria conversar contigo!
 - CPF: ${conversationContext.studentData.cpf || 'Não informado'}
 - Email: ${conversationContext.studentData.email || 'Não informado'}
 - Telefone: ${conversationContext.studentData.telefone || 'Não informado'}
 - Ciclo atual: ${conversationContext.studentData.ciclo || 'Não informado'}
 - Status: ${conversationContext.studentData.status || 'Não informado'}
-- 🙏 Oro para que Deus continue te abençoando nesta jornada!` : 'Que bom te conhecer! Ainda não tenho seus dados, mas posso te ajudar com muito carinho do mesmo jeito. 😊💙'}
+- 🙏 Oro para que Deus continue te abençoando nesta jornada!`;
+    } else {
+      studentInfo = 'Que bom te conhecer! Ainda não tenho seus dados, mas posso te ajudar com muito carinho do mesmo jeito. 😊💙';
+    }
+    
+    const systemPrompt = `${aiConfig.systemPrompt}
+
+🕰️ AGORA SÃO: ${currentTime} em Palmas, TO
+${studentInfo}
 
 📚 NOSSA ESCOLA:
 - 1º Ciclo: Formação Básica - 16 disciplinas fundamentais
@@ -224,6 +314,7 @@ ${conversationContext.messages.slice(-4).map(m => `${m.role === 'user' ? '👤 V
 - Mantenho sempre um coração acolhedor e ministerial
 - Trato cada pessoa como um filho(a) de Deus especial
 - Respondo de forma prática mas sempre com amor e fé
+- USO OS DADOS REAIS consultados do sistema para respostas precisas
 
 Vamos lá! Como posso te abençoar hoje? 🙏💙`;
 

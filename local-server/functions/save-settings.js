@@ -24,7 +24,7 @@ router.post('/', async (req, res) => {
     }
     
     // Criar diretório de configurações se não existir
-    const configDir = path.join(process.cwd(), 'config');
+    const configDir = path.join(process.cwd(), '..', 'config');
     if (!fs.existsSync(configDir)) {
       fs.mkdirSync(configDir, { recursive: true });
     }
@@ -81,7 +81,7 @@ router.post('/', async (req, res) => {
 // Endpoint para recuperar configurações
 router.get('/', async (req, res) => {
   try {
-    const configPath = path.join(process.cwd(), 'config', 'settings.json');
+    const configPath = path.join(process.cwd(), '..', 'config', 'settings.json');
     
     if (!fs.existsSync(configPath)) {
       return res.json({

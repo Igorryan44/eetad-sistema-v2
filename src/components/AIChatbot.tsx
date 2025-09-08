@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bot, User, Send, Trash2, Loader2, MessageSquare } from 'lucide-react';
+import { Bot, User, Send, Trash2, Loader2 } from 'lucide-react';
 import { useAIChatbot } from '@/services/aiChatbotService';
 import { toast } from '@/hooks/use-toast';
 
@@ -27,6 +27,83 @@ const AIChatbot = ({ userId = 'guest', studentData, className = '' }: AIChatbotP
     sendMessage, 
     clearChat 
   } = useAIChatbot(userId);
+
+  // Função para detectar dispositivo e escolher a ação apropriada
+  const detectDeviceAndOpenChat = () => {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const screenWidth = window.innerWidth;
+    
+    // Múltiplas verificações para detectar mobile com mais precisão
+    const isMobileDevice = isMobile || (isTouchDevice && screenWidth <= 768);
+    
+    if (isMobileDevice) {
+      // 📱 CELULAR: Abre o WhatsApp (app nativo com fallback)
+      openWhatsApp();
+    } else {
+      // 💻 COMPUTADOR: Abre WhatsApp Web em nova aba do navegador
+      openWhatsAppWeb();
+    }
+  };
+
+  const openWhatsAppWeb = () => {
+    const botPhone = '556381122538'; // Número do bot conectado à Evolution API (instância eetad)
+    const formatPhoneNumber = (phoneNumber: string): string => {
+      const cleanNumber = phoneNumber.replace(/\D/g, '');
+      // Já está no formato correto com código do país
+      return cleanNumber;
+    };
+    
+    const encodeMessage = (msg: string): string => {
+      return encodeURIComponent(msg);
+    };
+    
+    const formattedPhone = formatPhoneNumber(botPhone);
+    const defaultMessage = `Olá! Vim através do site da EETAD e gostaria de conversar com o agente IA.\n\nMeu CPF: ${userId !== 'guest' ? userId : '[informar CPF]'}`;
+    const encodedMessage = encodeMessage(defaultMessage);
+    
+    // Abre WhatsApp Web em nova aba diretamente com o bot da Evolution API
+    const url = `https://web.whatsapp.com/send?phone=${formattedPhone}&text=${encodedMessage}`;
+    window.open(url, '_blank');
+  };
+
+  const openWhatsApp = () => {
+    const botPhone = '556381122538'; // Número do bot conectado à Evolution API (instância eetad)
+    const formatPhoneNumber = (phoneNumber: string): string => {
+      const cleanNumber = phoneNumber.replace(/\D/g, '');
+      // Já está no formato correto com código do país
+      return cleanNumber;
+    };
+    
+    const encodeMessage = (msg: string): string => {
+      return encodeURIComponent(msg);
+    };
+    
+    const formattedPhone = formatPhoneNumber(botPhone);
+    const defaultMessage = `Olá! Vim através do site da EETAD e gostaria de conversar com o agente IA.\n\nMeu CPF: ${userId !== 'guest' ? userId : '[informar CPF]'}`;
+    const encodedMessage = encodeMessage(defaultMessage);
+    
+    // Tenta abrir o app do WhatsApp primeiro, depois WhatsApp Web como fallback
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      // Em dispositivos móveis, prioriza o app
+      const appUrl = `whatsapp://send?phone=${formattedPhone}&text=${encodedMessage}`;
+      const webUrl = `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
+      
+      // Tenta abrir o app, com fallback para wa.me
+      window.location.href = appUrl;
+      
+      // Fallback para wa.me após um breve delay
+      setTimeout(() => {
+        window.open(webUrl, '_blank');
+      }, 1000);
+    } else {
+      // Em desktops, abre WhatsApp Web
+      const url = `https://web.whatsapp.com/send?phone=${formattedPhone}&text=${encodedMessage}`;
+      window.open(url, '_blank');
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -86,8 +163,9 @@ const AIChatbot = ({ userId = 'guest', studentData, className = '' }: AIChatbotP
     return (
       <div className={`fixed bottom-6 right-6 z-50 ${className}`}>
         <Button
-          onClick={() => setIsOpen(true)}
+          onClick={detectDeviceAndOpenChat}
           className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white rounded-full w-14 h-14 shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+          title="💻 Computador: WhatsApp Web | 📱 Celular: WhatsApp App"
         >
           <Bot className="h-6 w-6" />
         </Button>
