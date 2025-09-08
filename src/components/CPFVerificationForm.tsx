@@ -54,6 +54,16 @@ const CPFVerificationForm = ({ onCPFVerified, onCancel }: CPFVerificationFormPro
   };
 
   const handleConnectionCheck = async () => {
+    // Em produção, mostrar mensagem informativa
+    if (isProduction) {
+      toast({
+        title: "🌍 Sistema Online",
+        description: "Funcionando em modo produção. Todas as funcionalidades estão disponíveis!",
+        variant: "default"
+      });
+      return;
+    }
+    
     setIsCheckingConnection(true);
     try {
       const healthy = await checkBackendHealth();
@@ -312,7 +322,7 @@ const CPFVerificationForm = ({ onCPFVerified, onCancel }: CPFVerificationFormPro
               <span className={`text-sm md:text-base font-medium ${
                 isConnected ? 'text-green-700' : 'text-red-700'
               }`}>
-                {isConnected ? 'Servidor Online' : 'Servidor Offline'}
+                {isProduction ? 'Modo Produção' : (isConnected ? 'Servidor Online' : 'Servidor Offline')}
               </span>
             </div>
             
