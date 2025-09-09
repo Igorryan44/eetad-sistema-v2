@@ -92,10 +92,19 @@ if ! command -v pm2 &> /dev/null; then
 fi
 
 # Verificar se o arquivo de configuração do PM2 existe
-if [ ! -f "ecosystem.config.js" ]; then
-    print_warning "Arquivo ecosystem.config.js não encontrado. Criando..."
+if [ ! -f "ecosystem.config.js" ] && [ ! -f "ecosystem-root.config.js" ]; then
+    print_warning "Arquivo de configuração PM2 não encontrado. Criando..."
     
-    cat > ecosystem.config.js << 'EOF'
+    # Detectar se é root
+    if [ "$EUID" -eq 0 ]; then
+        CONFIG_FILE="ecosystem-root.config.js"
+        print_info "Usando configuração para root"
+    else
+        CONFIG_FILE="ecosystem.config.js"
+        print_info "Usando configuração para usuário normal"
+    fi
+    
+    cat > $CONFIG_FILE << 'EOF'
 module.exports = {
   apps: [
     {
@@ -118,7 +127,16 @@ module.exports = {
 };
 EOF
     
-    print_status "Arquivo ecosystem.config.js criado"
+    print_status "Arquivo $CONFIG_FILE criado"
+fi
+
+# Determinar qual arquivo de configuração usar
+if [ -f "ecosystem-root.config.js" ] && [ "$EUID" -eq 0 ]; then
+    PM2_CONFIG="ecosystem-root.config.js"
+elif [ -f "ecosystem.config.js" ]; then
+    PM2_CONFIG="ecosystem.config.js"
+else
+    PM2_CONFIG="ecosystem.config.js"
 fi
 
 # Parar aplicação se estiver rodando
@@ -126,8 +144,8 @@ print_info "Parando aplicação anterior..."
 pm2 stop eetad-backend 2>/dev/null || true
 
 # Iniciar aplicação
-print_info "Iniciando aplicação..."
-pm2 start ecosystem.config.js
+print_info "Iniciando aplicação com $PM2_CONFIG..."
+pm2 start $PM2_CONFIG
 
 # Salvar configuração do PM2
 pm2 save

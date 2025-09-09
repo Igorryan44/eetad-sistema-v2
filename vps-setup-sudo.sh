@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Script de Configuração Automática para VPS
+# Script de Configuração para VPS com Usuário Sudo
 # EETAD Sistema v2
 
-echo "🚀 Configurando VPS para EETAD Sistema v2..."
+echo "🚀 Configurando VPS para EETAD Sistema v2 (usuário sudo)..."
 
 # Cores para output
 RED='\033[0;31m'
@@ -29,14 +29,12 @@ print_info() {
     echo -e "${BLUE}ℹ️  $1${NC}"
 }
 
-# Verificar se é root
-if [ "$EUID" -ne 0 ]; then
-    print_error "Este script deve ser executado como root."
-    print_info "Execute: sudo ./vps-setup.sh"
+# Verificar se tem sudo
+if ! sudo -n true 2>/dev/null; then
+    print_error "Este script precisa de privilégios sudo."
+    print_info "Execute: sudo ./vps-setup-sudo.sh"
     exit 1
 fi
-
-print_info "Executando como root - configuração otimizada"
 
 # Detectar distribuição
 if [ -f /etc/os-release ]; then
@@ -52,16 +50,16 @@ print_info "Sistema detectado: $OS $VER"
 
 # Atualizar sistema
 print_info "Atualizando sistema..."
-apt update && apt upgrade -y
+sudo apt update && sudo apt upgrade -y
 
 # Instalar dependências básicas
 print_info "Instalando dependências..."
-apt install -y curl wget git unzip software-properties-common
+sudo apt install -y curl wget git unzip software-properties-common
 
 # Instalar Node.js 18+
 print_info "Instalando Node.js..."
-curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-apt install -y nodejs
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
 
 # Verificar versão do Node.js
 NODE_VERSION=$(node --version)
@@ -69,41 +67,41 @@ print_status "Node.js instalado: $NODE_VERSION"
 
 # Instalar PM2 globalmente
 print_info "Instalando PM2..."
-npm install -g pm2
+sudo npm install -g pm2
 
 # Instalar Nginx
 print_info "Instalando Nginx..."
-apt install -y nginx
+sudo apt install -y nginx
 
 # Instalar Certbot para SSL
 print_info "Instalando Certbot..."
-apt install -y certbot python3-certbot-nginx
+sudo apt install -y certbot python3-certbot-nginx
 
 # Configurar firewall
 print_info "Configurando firewall..."
-ufw allow 22/tcp
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw --force enable
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw --force enable
 
 # Criar diretório do projeto
 print_info "Criando diretório do projeto..."
-mkdir -p /var/www
-chown -R root:root /var/www
+sudo mkdir -p /var/www
+sudo chown -R $USER:$USER /var/www
 
 # Criar diretório de logs
 print_info "Criando diretório de logs..."
-mkdir -p /var/log/eetad
-chown -R root:root /var/log/eetad
+sudo mkdir -p /var/log/eetad
+sudo chown -R $USER:$USER /var/log/eetad
 
 # Configurar Nginx
 print_info "Configurando Nginx..."
-systemctl enable nginx
-systemctl start nginx
+sudo systemctl enable nginx
+sudo systemctl start nginx
 
 # Configurar PM2 para auto-start
 print_info "Configurando PM2..."
-pm2 startup systemd -u root --hp /root
+pm2 startup systemd -u $USER --hp $HOME
 
 print_status "Configuração básica da VPS concluída!"
 print_info "Próximos passos:"

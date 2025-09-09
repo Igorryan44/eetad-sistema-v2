@@ -4,18 +4,40 @@
 
 ### **1. Conectar na VPS:**
 ```bash
+# Como root (recomendado)
 ssh root@seu-ip-vps
-# ou
+
+# Ou como usuário com sudo
 ssh usuario@seu-ip-vps
 ```
 
 ### **2. Executar Setup Inicial:**
+
+**Opção A - Como root (Recomendado):**
 ```bash
 # Tornar o script executável
 chmod +x vps-setup.sh
 
 # Executar configuração inicial
 ./vps-setup.sh
+```
+
+**Opção B - Script Universal:**
+```bash
+# Tornar o script executável
+chmod +x vps-setup-universal.sh
+
+# Executar configuração inicial (funciona com root ou sudo)
+./vps-setup-universal.sh
+```
+
+**Opção C - Como usuário sudo:**
+```bash
+# Tornar o script executável
+chmod +x vps-setup-sudo.sh
+
+# Executar configuração inicial
+sudo ./vps-setup-sudo.sh
 ```
 
 ### **3. Clonar o Projeto:**
