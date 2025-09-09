@@ -16,6 +16,12 @@ export function apiUrl(path: string): string {
  * Enhanced API fetch with connection management and retry logic
  */
 export async function apiFetch(input: string, init?: RequestInit) {
+  // Em produção, lançar erro para forçar fallback
+  if (isProduction) {
+    console.log('📱 Modo produção: simulando falha de API para forçar fallback');
+    throw new Error('Backend server is not accessible in production mode');
+  }
+  
   const url = input.startsWith('http') ? input : apiUrl(input);
   
   try {

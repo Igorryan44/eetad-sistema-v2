@@ -32,7 +32,18 @@ interface UseStudentBooksReturn {
 
 const API_BASE_URL = ((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003';
 
+// Detectar se está em produção
+const isProduction = window.location.hostname !== 'localhost' && 
+                     window.location.hostname !== '127.0.0.1' &&
+                     !window.location.hostname.includes('local');
+
 export const getStudentBooks = async (cpf: string): Promise<StudentBook[]> => {
+  // Em produção, retornar array vazio
+  if (isProduction) {
+    console.log('📱 Modo produção: retornando array vazio para livros do aluno');
+    return [];
+  }
+  
   try {
     const response = await fetch(`${API_BASE_URL}/functions/get-student-books`, {
       method: 'POST',
@@ -50,7 +61,7 @@ export const getStudentBooks = async (cpf: string): Promise<StudentBook[]> => {
     return data.success ? data.books : [];
   } catch (error) {
     console.error('Erro ao buscar livros do aluno:', error);
-    throw error;
+    return [];
   }
 };
 

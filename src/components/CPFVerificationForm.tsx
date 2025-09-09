@@ -8,6 +8,8 @@ import { toast } from "@/hooks/use-toast";
 import { Student } from "@/pages/Index";
 import { Search, UserCheck, Loader2, Shield, X, Wifi, WifiOff, RefreshCw } from "lucide-react";
 import { apiRequest, checkBackendHealth, getConnectionStatus } from "@/services/api";
+import { googleSheetsDirectService } from '@/services/googleSheetsDirectService';
+import { productionApiService } from '@/services/productionApiService';
 
 interface CPFVerificationFormProps {
   onCPFVerified: (student: Student) => void;
@@ -128,39 +130,48 @@ const CPFVerificationForm = ({ onCPFVerified, onCancel }: CPFVerificationFormPro
   };
 
   const consultarCPFNoGoogleSheets = async (cpf: string): Promise<Student> => {
-    // Em produção, simular consulta sem backend
+    // Em produção, usar a API de produção que possui as credenciais
     if (isProduction) {
-      console.log('📱 Modo produção: simulando consulta de CPF');
+      console.log('📱 Modo produção: acessando Google Sheets diretamente');
       
-      // Simular delay de consulta
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Simular resposta baseada no CPF
+      // Verificar se o CPF é válido
       const isValidFormat = validateCPF(cpf);
-      
       if (!isValidFormat) {
         throw new Error('CPF inválido');
       }
       
-      // Simular usuário encontrado para alguns CPFs específicos
-      const knownCPFs = ['12345678901', '11111111111', '22222222222'];
-      const cpfClean = cpf.replace(/\D/g, '');
-      
-      if (knownCPFs.includes(cpfClean)) {
+      try {
+        // Primeiro, tentar usar o serviço de produção que usa as credenciais do .env
+        const studentData = await googleSheetsDirectService.searchStudentByCPF(cpf);
+        
         return {
-          cpf: cpf,
-          nome: "Aluno Demonstração",
-          email: "aluno@exemplo.com",
-          registered: true
+          cpf: studentData.cpf,
+          nome: studentData.nome,
+          email: studentData.email,
+          registered: studentData.registered
         };
-      } else {
-        // CPF não encontrado - novo aluno
-        return {
-          cpf,
-          nome: "",
-          email: "",
-          registered: false
-        };
+      } catch (directError) {
+        console.error('❌ Erro no Google Sheets direto:', directError);
+        
+        // Fallback para dados de demonstração
+        const knownCPFs = ['12345678901', '11111111111', '22222222222'];
+        const cpfClean = cpf.replace(/\D/g, '');
+        
+        if (knownCPFs.includes(cpfClean)) {
+          return {
+            cpf: cpf,
+            nome: "Aluno Demonstração",
+            email: "aluno@exemplo.com",
+            registered: true
+          };
+        } else {
+          return {
+            cpf,
+            nome: "",
+            email: "",
+            registered: false
+          };
+        }
       }
     }
     

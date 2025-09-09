@@ -9,6 +9,7 @@ import { toast } from '@/hooks/use-toast';
 import { Settings, MessageSquare, Phone, Mail, User, Shield, Smartphone, Globe, Bot, Cpu, Zap } from 'lucide-react';
 import UserManagement from './UserManagement';
 import WhatsAppOpener from './WhatsAppOpener';
+import GoogleSheetsConfig from './GoogleSheetsConfig';
 
 interface SettingsMenuProps {
   isOpen: boolean;
@@ -40,6 +41,11 @@ interface SecretaryInfo {
 }
 
 const SettingsMenu = ({ isOpen, onClose }: SettingsMenuProps) => {
+  // Detectar se está em produção
+  const isProduction = window.location.hostname !== 'localhost' && 
+                       window.location.hostname !== '127.0.0.1' &&
+                       !window.location.hostname.includes('local');
+  
   const [aiConfig, setAiConfig] = useState<AIConfig>(() => {
     const saved = localStorage.getItem('eetad_ai_config');
     return saved ? JSON.parse(saved) : {
@@ -128,6 +134,16 @@ Conte comigo para qualquer coisa! Como posso te ajudar hoje na sua caminhada de 
       // Salvar no localStorage (para o frontend)
       localStorage.setItem('eetad_ai_config', JSON.stringify(aiConfig));
       
+      // Em produção, não fazer requisições para o backend
+      if (isProduction) {
+        console.log('📱 Modo produção: salvando apenas no localStorage');
+        toast({
+          title: "Sucesso",
+          description: "Configurações do Agente IA salvas com sucesso! (Modo Produção)"
+        });
+        return;
+      }
+      
       // Salvar no backend (para o servidor local)
       const response = await fetch(`${((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003'}/functions/save-settings`, {
         method: 'POST',
@@ -181,6 +197,16 @@ Conte comigo para qualquer coisa! Como posso te ajudar hoje na sua caminhada de 
     try {
       // Salvar no localStorage (para o frontend)
       localStorage.setItem('eetad_whatsapp_config', JSON.stringify(whatsappConfig));
+      
+      // Em produção, não fazer requisições para o backend
+      if (isProduction) {
+        console.log('📱 Modo produção: salvando apenas no localStorage');
+        toast({
+          title: "Sucesso",
+          description: "Configurações do WhatsApp salvas com sucesso! (Modo Produção)"
+        });
+        return;
+      }
       
       // Salvar no backend (para o servidor local)
       const response = await fetch(`${((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003'}/functions/save-settings`, {
@@ -236,6 +262,16 @@ Conte comigo para qualquer coisa! Como posso te ajudar hoje na sua caminhada de 
     try {
       // Salvar no localStorage (para o frontend)
       localStorage.setItem('eetad_secretary_info', JSON.stringify(secretaryInfo));
+      
+      // Em produção, não fazer requisições para o backend
+      if (isProduction) {
+        console.log('📱 Modo produção: salvando apenas no localStorage');
+        toast({
+          title: "Sucesso", 
+          description: "Informações da Secretaria salvas com sucesso! (Modo Produção)"
+        });
+        return;
+      }
       
       // Salvar no backend (para o servidor local)
       const response = await fetch(`${((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003'}/functions/save-settings`, {
@@ -499,10 +535,14 @@ Conte comigo para qualquer coisa! Como posso te ajudar hoje na sua caminhada de 
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               Gerenciar Usuários
+            </TabsTrigger>
+            <TabsTrigger value="sheets" className="flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Google Sheets
             </TabsTrigger>
             <TabsTrigger value="whatsapp" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
@@ -517,6 +557,24 @@ Conte comigo para qualquer coisa! Como posso te ajudar hoje na sua caminhada de 
               Informações da Secretaria
             </TabsTrigger>
           </TabsList>
+
+          {/* Tab: Google Sheets Configuration */}
+          <TabsContent value="sheets" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5" />
+                  Configuração Google Sheets
+                </CardTitle>
+                <CardDescription>
+                  Configure o acesso direto ao Google Sheets para funcionar em produção sem servidor backend
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <GoogleSheetsConfig />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Tab: Gerenciar Usuários */}
           <TabsContent value="users" className="space-y-4">

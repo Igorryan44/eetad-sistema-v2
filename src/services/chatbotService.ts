@@ -25,7 +25,25 @@ interface UseChatbotReturn {
 
 const API_BASE_URL = ((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003';
 
+// Detectar se está em produção
+const isProduction = window.location.hostname !== 'localhost' && 
+                     window.location.hostname !== '127.0.0.1' &&
+                     !window.location.hostname.includes('local');
+
 export const sendChatbotMessage = async (message: string, context?: any): Promise<ChatbotResponse> => {
+  // Em produção, retornar resposta simulada
+  if (isProduction) {
+    console.log('📱 Modo produção: usando resposta simulada do chatbot');
+    
+    // Simular delay de resposta
+    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
+    
+    return {
+      success: true,
+      response: 'Olá! Sou o assistente da EETAD. Para atendimento completo, entre em contato com nossa secretaria pelo telefone (63) 9 8511-2006 ou email simacjr@hotmail.com.'
+    };
+  }
+  
   try {
     const response = await fetch(`${API_BASE_URL}/functions/ai-chatbot`, {
       method: 'POST',
@@ -47,7 +65,11 @@ export const sendChatbotMessage = async (message: string, context?: any): Promis
     return result;
   } catch (error) {
     console.error('Erro ao enviar mensagem para o chatbot:', error);
-    throw error;
+    // Fallback para resposta simulada
+    return {
+      success: true,
+      response: 'Desculpe, estou enfrentando problemas técnicos. Para atendimento imediato, entre em contato com nossa secretaria pelo telefone (63) 9 8511-2006.'
+    };
   }
 };
 

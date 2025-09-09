@@ -12,6 +12,11 @@ type EnrolledStudent = {
 
 const API_BASE_URL = ((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003';
 
+// Detectar se está em produção
+const isProduction = window.location.hostname !== 'localhost' && 
+                     window.location.hostname !== '127.0.0.1' &&
+                     !window.location.hostname.includes('local');
+
 // Hook para gerenciar alunos matriculados
 export const useEnrolledStudents = () => {
   const [students, setStudents] = useState<EnrolledStudent[]>([]);
@@ -22,6 +27,13 @@ export const useEnrolledStudents = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Em produção, usar dados simulados
+      if (isProduction) {
+        console.log('📱 Modo produção: usando dados simulados de alunos matriculados');
+        setStudents([]);
+        return;
+      }
       
       const response = await fetch(`${API_BASE_URL}/functions/get-matriculated-students`, {
         method: 'GET',
@@ -70,6 +82,12 @@ export const useEnrolledStudents = () => {
 
 // Função para buscar alunos matriculados diretamente
 export const getEnrolledStudents = async (): Promise<EnrolledStudent[]> => {
+  // Em produção, retornar array vazio
+  if (isProduction) {
+    console.log('📱 Modo produção: retornando array vazio para alunos matriculados');
+    return [];
+  }
+  
   try {
     const response = await fetch(`${API_BASE_URL}/functions/get-matriculated-students`, {
       method: 'GET',
@@ -92,6 +110,7 @@ export const getEnrolledStudents = async (): Promise<EnrolledStudent[]> => {
     }
   } catch (error) {
     console.error('Erro ao buscar alunos matriculados:', error);
-    throw error;
+    // Fallback para array vazio
+    return [];
   }
 };

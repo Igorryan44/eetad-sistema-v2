@@ -22,8 +22,15 @@ class ConnectionService {
   private status: ConnectionStatus;
   private retryConfig: RetryConfig;
   private isHealthChecking: boolean = false;
+  private isProduction: boolean;
 
   constructor() {
+    // Detectar se está em produção
+    this.isProduction = typeof window !== 'undefined' && 
+                        window.location.hostname !== 'localhost' && 
+                        window.location.hostname !== '127.0.0.1' &&
+                        !window.location.hostname.includes('local');
+                        
     this.baseUrl = this.getBaseUrl();
     this.status = {
       isConnected: false,
@@ -53,6 +60,18 @@ class ConnectionService {
    * Perform health check with retry logic
    */
   public async healthCheck(forceCheck: boolean = false): Promise<boolean> {
+    // Em produção, sempre retornar false
+    if (this.isProduction) {
+      console.log('📱 Modo produção: health check sempre retorna false');
+      this.status = {
+        isConnected: false,
+        lastChecked: new Date(),
+        retryCount: 0,
+        error: 'Production mode - backend not accessible'
+      };
+      return false;
+    }
+    
     const now = new Date();
     const timeSinceLastCheck = now.getTime() - this.status.lastChecked.getTime();
     
@@ -134,6 +153,12 @@ class ConnectionService {
     options: RequestInit = {},
     enableRetry: boolean = true
   ): Promise<T> {
+    // Em produção, sempre lançar erro
+    if (this.isProduction) {
+      console.log('📱 Modo produção: simulando falha de requisição');
+      throw new Error('Backend server is not accessible in production mode');
+    }
+    
     const url = `${this.baseUrl}${endpoint}`;
     let lastError: Error;
 
@@ -236,6 +261,12 @@ class ConnectionService {
    * Start automatic server if not running (development helper)
    */
   public async ensureServerRunning(): Promise<boolean> {
+    // Em produção, sempre retornar false
+    if (this.isProduction) {
+      console.log('📱 Modo produção: servidor não disponível');
+      return false;
+    }
+    
     const isHealthy = await this.healthCheck(true);
     
     if (!isHealthy) {

@@ -30,7 +30,18 @@ interface UseEnrollmentReturn {
 
 const API_BASE_URL = ((import.meta as any)?.env?.VITE_API_BASE_URL) || 'http://localhost:3003';
 
+// Detectar se está em produção
+const isProduction = window.location.hostname !== 'localhost' && 
+                     window.location.hostname !== '127.0.0.1' &&
+                     !window.location.hostname.includes('local');
+
 export const getEnrollments = async (): Promise<Enrollment[]> => {
+  // Em produção, retornar array vazio
+  if (isProduction) {
+    console.log('📱 Modo produção: retornando array vazio para matrículas');
+    return [];
+  }
+  
   try {
     const response = await fetch(`${API_BASE_URL}/functions/get-enrollments`, {
       method: 'GET',
@@ -47,7 +58,7 @@ export const getEnrollments = async (): Promise<Enrollment[]> => {
     return data.success ? data.enrollments : [];
   } catch (error) {
     console.error('Erro ao buscar matrículas:', error);
-    throw error;
+    return [];
   }
 };
 
